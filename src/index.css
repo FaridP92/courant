@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+@import './styles/tokens.css';
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-abyss);
+  color: var(--color-ink-100);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Les chiffres du command center sont toujours tabulaires */
+.font-data,
+.font-display {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: var(--color-abyss);
+}
