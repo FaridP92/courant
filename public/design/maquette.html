@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Courant · maquette du command center</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<style>
+/* ============================================================
+   Fontes auto-hébergées : copie de src/styles/fonts.css (RGPD,
+   aucun appel tiers). Fichiers servis depuis /fonts.
+   ============================================================ */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-latin-wdth-normal.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+
+/* ============================================================
+   Tokens : copie de src/styles/tokens.css (source de vérité).
+   Toute évolution se fait dans tokens.css d'abord.
+   ============================================================ */
+:root {
+  --abyss: #0a1216;
+  --panel: #101b21;
+  --raised: #16242c;
+  --line: #223440;
+  --line-strong: #31485a;
+  --ink-100: #eaf3f6;
+  --ink-60: #9db4be;
+  --ink-40: #7b96a4;
+  --accent: #2ee6ff;
+  --accent-deep: #0e7c9e;
+  --accent-glow: rgba(46, 230, 255, 0.12);
+  --signal-ok: #43d17c;
+  --signal-tense: #ffb03a;
+  --signal-critical: #ff5a5f;
+  --tempo-blue: #4d9fff;
+  --tempo-white: #eaf3f6;
+  --tempo-red: #ff5a5f;
+  --fuel-nuclear: #b58c15;
+  --fuel-hydro: #287ab5;
+  --fuel-wind: #2ca893;
+  --fuel-solar: #c06a01;
+  --fuel-gas: #c65860;
+  --fuel-bio: #0f8354;
+  --fuel-coal: #9e6d04;
+  --fuel-oil: #986eb9;
+  --fuel-pumped: #31679a;
+  --fuel-imports: #678c9f;
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+  --radius-card: 10px;
+  --radius-chip: 6px;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html { color-scheme: dark; scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 500px at 75% -10%, rgba(46, 230, 255, 0.05), transparent 60%),
+    var(--abyss);
+  color: var(--ink-100);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+/* ---------- Bandeau maquette ---------- */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  justify-content: center;
+  padding: 7px 16px;
+  background: repeating-linear-gradient(-45deg, #132028 0 14px, #0e181f 14px 28px);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  color: var(--ink-60);
+  text-align: center;
+}
+.demo-banner strong { color: var(--accent); font-weight: 600; }
+
+/* ---------- Header ---------- */
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 18px 28px 14px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand svg { display: block; }
+.brand-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 118%;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.brand-sub {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-40);
+  margin-top: 4px;
+}
+.masthead-meta {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.clock { text-align: right; }
+.clock-time {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: 112%;
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  line-height: 1;
+}
+.clock-date { font-family: var(--font-data); font-size: 11.5px; color: var(--ink-40); margin-top: 3px; }
+.live {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--ink-60);
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(46, 230, 255, 0.5);
+  animation: pulse 2.4s ease-out infinite;
+}
+.live b { color: var(--accent); font-weight: 600; letter-spacing: 0.1em; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(46, 230, 255, 0.45); }
+  70% { box-shadow: 0 0 0 9px rgba(46, 230, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 230, 255, 0); }
+}
+.nav-link {
+  font-family: var(--font-data);
+  font-size: 12.5px;
+  color: var(--ink-60);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--line-strong);
+  padding-bottom: 2px;
+}
+.nav-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---------- Grille générale ---------- */
+.board {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 10px 28px 40px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-areas:
+    "kpis   kpis"
+    "time   space"
+    "brief  brief"
+    "metros metros";
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+  min-width: 0;
+}
+.card-title {
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-40);
+  margin: 0 0 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.card-title .hint { font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: var(--ink-40); }
+
+/* ---------- KPI ---------- */
+.kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+.kpi { display: flex; flex-direction: column; gap: 6px; }
+.kpi-label {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-40);
+}
+.kpi-value {
+  font-family: var(--font-display);
+  font-weight: 780;
+  font-stretch: 115%;
+  font-variant-numeric: tabular-nums;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.kpi-value small { font-size: 15px; font-weight: 600; color: var(--ink-60); font-stretch: 100%; }
+.kpi-delta { font-family: var(--font-data); font-size: 11.5px; color: var(--ink-60); }
+.kpi-delta .up { color: var(--accent); }
+.kpi-spark { margin-top: auto; }
+.kpi-spark svg { display: block; width: 100%; height: 30px; }
+
+/* ---------- Colonne du temps (signature) ---------- */
+.time-col { grid-area: time; display: flex; flex-direction: column; gap: 0; position: relative; }
+.hero-card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.mix-card { border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
+.hero-head { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 6px; }
+.hero-num-block { min-width: 250px; }
+.hero-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 120%;
+  font-variant-numeric: tabular-nums;
+  font-size: 72px;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  text-shadow: 0 0 34px rgba(46, 230, 255, 0.18);
+}
+.hero-num small { font-size: 30px; font-weight: 650; color: var(--ink-60); }
+.hero-caption { font-size: 13.5px; color: var(--ink-60); margin-top: 8px; max-width: 300px; }
+.hero-caption b { color: var(--ink-100); font-weight: 600; }
+.insights { display: flex; flex-direction: column; gap: 8px; margin-left: auto; }
+.insight {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--ink-60);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding: 6px 10px;
+}
+.insight-mark { color: var(--accent); font-weight: 600; }
+.chart-wrap { position: relative; }
+.chart-wrap svg { display: block; width: 100%; height: auto; }
+.tooltip {
+  position: absolute;
+  left: 74%;
+  top: 22%;
+  transform: translateX(-100%);
+  background: rgba(10, 18, 22, 0.92);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  color: var(--ink-60);
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+.tooltip-time { color: var(--ink-100); font-weight: 600; margin-bottom: 4px; }
+.tooltip-row { display: flex; align-items: center; gap: 7px; }
+.tooltip-row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.tooltip-row b { color: var(--ink-100); font-weight: 600; margin-left: auto; padding-left: 14px; }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  margin-top: 10px;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  color: var(--ink-60);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.legend-item i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend-item.line-item i { height: 3px; border-radius: 2px; width: 14px; }
+.legend-item b { color: var(--ink-100); font-weight: 500; }
+
+/* ---------- Colonne espace : carte + signaux ---------- */
+.space-col { grid-area: space; display: flex; flex-direction: column; gap: 14px; }
+.map-card svg { display: block; width: 100%; height: auto; }
+.map-footnote { font-family: var(--font-data); font-size: 11px; color: var(--ink-40); margin-top: 8px; }
+.flow-line {
+  fill: none; stroke-width: 2; stroke-linecap: round;
+  stroke-dasharray: 3 7;
+  animation: flow 1.6s linear infinite;
+}
+@keyframes flow { to { stroke-dashoffset: -20; } }
+
+.signals { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.signal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tempo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.signal-tile {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  background: var(--raised);
+  padding: 8px 6px 7px;
+  text-align: center;
+}
+.signal-day { font-family: var(--font-data); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-40); }
+.signal-dot { width: 12px; height: 12px; border-radius: 50%; margin: 7px auto 5px; }
+.signal-word { font-family: var(--font-data); font-size: 11px; font-weight: 600; }
+.signal-note { font-size: 12px; color: var(--ink-60); margin-top: 9px; }
+.signal-note b { color: var(--signal-tense); font-weight: 600; }
+.tempo-note b { color: var(--tempo-red); font-weight: 600; }
+
+/* ---------- Brief IA + chat ---------- */
+.brief { grid-area: brief; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 14px; }
+.brief-text { font-size: 15.5px; line-height: 1.65; color: var(--ink-100); max-width: 70ch; margin: 0; }
+.brief-meta { font-family: var(--font-data); font-size: 11px; color: var(--ink-40); margin-top: 10px; }
+.chat-q { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chat-chip {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-60);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.chat-chip:hover { border-color: var(--accent); color: var(--ink-100); box-shadow: 0 0 0 3px var(--accent-glow); }
+.chat-input {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--abyss);
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-40);
+}
+.chat-input span { color: var(--accent); font-family: var(--font-data); }
+
+/* ---------- Métropoles ---------- */
+.metros { grid-area: metros; }
+.metros-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.metro { border: 1px solid var(--line); border-radius: var(--radius-chip); background: var(--raised); padding: 10px 12px; }
+.metro-name { font-family: var(--font-data); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-40); }
+.metro-val { font-family: var(--font-display); font-weight: 720; font-stretch: 112%; font-variant-numeric: tabular-nums; font-size: 19px; margin: 3px 0 5px; }
+.metro-val small { font-size: 11px; color: var(--ink-60); font-weight: 500; }
+.metro svg { display: block; width: 100%; height: 26px; }
+
+/* ---------- Footer ---------- */
+.footer {
+  border-top: 1px solid var(--line);
+  margin-top: 26px;
+  padding: 18px 28px 30px;
+}
+.footer-inner {
+  max-width: 1360px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; gap: 8px 26px;
+  font-family: var(--font-data); font-size: 11.5px; color: var(--ink-40);
+}
+.footer-inner a { color: var(--ink-60); text-decoration: none; border-bottom: 1px dashed var(--line-strong); }
+.footer-inner a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1120px) {
+  .board { grid-template-columns: 1fr; grid-template-areas: "kpis" "time" "space" "brief" "metros"; }
+  .brief { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .metros-grid { grid-template-columns: repeat(3, 1fr); }
+  .space-col { flex-direction: row; flex-wrap: wrap; }
+  .space-col > .card { flex: 1 1 340px; }
+}
+@media (max-width: 620px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  /* priorité mobile du brief : les signaux Ecowatt/Tempo avant la carte */
+  .space-col { flex-direction: column; }
+  .space-col > .card:last-child { order: -1; }
+  .metros-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-num { font-size: 56px; }
+  .masthead { gap: 14px; }
+  .masthead-meta { margin-left: 0; }
+  .tooltip { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+  .flow-line { animation: none; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<p class="demo-banner">
+  <strong>Maquette statique · Phase 0</strong>
+  <span>Toutes les valeurs sont fictives et servent uniquement à valider le design.</span>
+  <span>Scénario illustré : pointe d'un mercredi soir d'hiver, 19:12.</span>
+</p>
+
+<header class="masthead">
+  <div class="brand">
+    <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#0f1a20" stroke="#223440" />
+      <path d="M4 19h6l3-11 5 17 3-9h7" fill="none" stroke="#2ee6ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+    <div>
+      <h1 class="brand-name">COURANT</h1>
+      <p class="brand-sub" style="margin:0">L'électricité française en direct</p>
+    </div>
+  </div>
+  <div class="masthead-meta">
+    <div class="clock">
+      <div class="clock-time mono" aria-label="Heure, fuseau Europe/Paris">19:12</div>
+      <div class="clock-date">mercredi 28 janvier · Europe/Paris</div>
+    </div>
+    <p class="live" style="margin:0">
+      <span class="live-dot" aria-hidden="true"></span>
+      <b>LIVE</b>
+      <span>données de 19:00</span>
+    </p>
+    <a class="nav-link" href="#">Sous le capot</a>
+  </div>
+</header>
+
+<main class="board">
+
+  <!-- ================= KPI ================= -->
+  <section class="kpis" aria-label="Indicateurs clés (sparklines : tendance des 6 dernières heures)">
+    <article class="card kpi">
+      <span class="kpi-label">Consommation</span>
+      <span class="kpi-value">71,8<small> GW</small></span>
+      <span class="kpi-delta"><span class="up">+4,1 %</span> vs prévision J-1</span>
+      <span class="kpi-spark"><svg id="spark-load" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg></span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi-label">Nucléaire</span>
+      <span class="kpi-value">61<small> %</small></span>
+      <span class="kpi-delta">44,9 GW produits</span>
+      <span class="kpi-spark"><svg id="spark-nuclear" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg></span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi-label">Renouvelables</span>
+      <span class="kpi-value">31<small> %</small></span>
+      <span class="kpi-delta">hydro 12,6 · éolien 8,4 GW</span>
+      <span class="kpi-spark"><svg id="spark-renewables" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg></span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi-label">Intensité CO2</span>
+      <span class="kpi-value">38<small> g/kWh</small></span>
+      <span class="kpi-delta">parmi les plus basses d'Europe</span>
+      <span class="kpi-spark"><svg id="spark-co2" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg></span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi-label">Échanges</span>
+      <span class="kpi-value">+1,9<small> GW</small></span>
+      <span class="kpi-delta">la France exporte</span>
+      <span class="kpi-spark"><svg id="spark-balance" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"></svg></span>
+    </article>
+  </section>
+
+  <!-- ================= Colonne du temps ================= -->
+  <section class="time-col" aria-label="Consommation et mix de production sur 24 heures">
+    <article class="card hero-card">
+      <h2 class="card-title">Consommation nationale
+        <span class="hint">réalisé vs prévisions RTE · 24 h · échelle 40-80 GW</span>
+      </h2>
+      <div class="hero-head">
+        <div class="hero-num-block">
+          <div class="hero-num mono">71,8<small> GW</small></div>
+          <p class="hero-caption">à 19:00 · environ <b>l'équivalent de 36 millions de foyers chauffés</b> (ordre de grandeur, constantes sourcées)</p>
+        </div>
+        <div class="insights" aria-label="Repères automatiques">
+          <span class="insight"><span class="insight-mark">▲</span> pointe du jour en cours</span>
+          <span class="insight"><span class="insight-mark">◆</span> top 8 % des soirées de janvier depuis 2012</span>
+          <span class="insight"><span class="insight-mark">≋</span> éolien au plus haut depuis 12 jours</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <svg id="chart-load" viewBox="0 0 760 240" role="img" aria-label="Courbe de consommation réalisée comparée aux prévisions de la veille et du jour, sur 24 heures. La consommation atteint 71,8 gigawatts à 19 heures, au-dessus des prévisions."></svg>
+        <div class="tooltip" aria-hidden="true">
+          <div class="tooltip-time">19:00</div>
+          <div class="tooltip-row"><i style="background:#2ee6ff"></i> Réalisé <b>71,8 GW</b></div>
+          <div class="tooltip-row"><i style="background:#7b96a4"></i> Prévision J-1 <b>69,0 GW</b></div>
+          <div class="tooltip-row"><i style="background:#77b6c6"></i> Prévision J <b>70,9 GW</b></div>
+        </div>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span class="legend-item line-item"><i style="background:#2ee6ff"></i> <b>Réalisé</b></span>
+        <span class="legend-item line-item"><i style="background:#77b6c6"></i> Prévision J</span>
+        <span class="legend-item line-item"><i style="background:#7b96a4"></i> Prévision J-1</span>
+      </div>
+    </article>
+
+    <article class="card mix-card">
+      <h2 class="card-title">Mix de production
+        <span class="hint">même axe temporel : le curseur traverse les deux vues · échelle 0-80 GW</span>
+      </h2>
+      <div class="chart-wrap">
+        <svg id="chart-mix" viewBox="0 0 760 210" role="img" aria-label="Aires empilées de la production par filière sur 24 heures : le nucléaire porte la base, l'hydraulique monte à la pointe du soir, le solaire forme une bosse en milieu de journée."></svg>
+      </div>
+      <div class="legend" id="mix-legend"></div>
+    </article>
+  </section>
+
+  <!-- ================= Colonne espace ================= -->
+  <aside class="space-col">
+    <article class="card map-card">
+      <h2 class="card-title">Échanges aux frontières
+        <span class="hint">flux physiques</span>
+      </h2>
+      <svg id="map" viewBox="-10 0 320 290" role="img" aria-label="Carte de France par région avec les flux d'échanges : exports vers la Grande-Bretagne, la Belgique, la Suisse et l'Italie, imports depuis l'Allemagne et l'Espagne."></svg>
+      <p class="map-footnote">Teinte des régions : consommation (illustration). Tracé : GeoJSON officiel des régions, simplifié. Flux temps réel en Phase 3.</p>
+    </article>
+
+    <article class="card">
+      <h2 class="card-title">Signaux
+        <span class="hint">Ecowatt et Tempo, couleurs officielles</span>
+      </h2>
+      <div class="signals">
+        <div>
+          <h3 class="card-title" style="margin-bottom:8px">Ecowatt</h3>
+          <div class="signal-grid">
+            <div class="signal-tile">
+              <div class="signal-day">mer 28</div>
+              <div class="signal-dot" style="background:var(--signal-ok)"></div>
+              <div class="signal-word" style="color:var(--signal-ok)">Vert</div>
+            </div>
+            <div class="signal-tile">
+              <div class="signal-day">jeu 29</div>
+              <div class="signal-dot" style="background:var(--signal-ok)"></div>
+              <div class="signal-word" style="color:var(--signal-ok)">Vert</div>
+            </div>
+            <div class="signal-tile" style="border-color:var(--signal-tense)">
+              <div class="signal-day">ven 30</div>
+              <div class="signal-dot" style="background:var(--signal-tense)"></div>
+              <div class="signal-word" style="color:var(--signal-tense)">Tendu</div>
+            </div>
+            <div class="signal-tile">
+              <div class="signal-day">sam 31</div>
+              <div class="signal-dot" style="background:var(--signal-ok)"></div>
+              <div class="signal-word" style="color:var(--signal-ok)">Vert</div>
+            </div>
+          </div>
+          <p class="signal-note">Vendredi : <b>système tendu entre 18 h et 20 h</b>, les éco-gestes comptent.</p>
+        </div>
+        <div>
+          <h3 class="card-title" style="margin-bottom:8px">Tempo</h3>
+          <div class="tempo-grid">
+            <div class="signal-tile">
+              <div class="signal-day">Aujourd'hui</div>
+              <div class="signal-dot" style="background:var(--tempo-white)"></div>
+              <div class="signal-word">Blanc</div>
+            </div>
+            <div class="signal-tile" style="border-color:var(--tempo-red)">
+              <div class="signal-day">Demain</div>
+              <div class="signal-dot" style="background:var(--tempo-red)"></div>
+              <div class="signal-word" style="color:var(--tempo-red)">Rouge</div>
+            </div>
+          </div>
+          <p class="signal-note tempo-note">Demain <b>jour rouge</b> : électricité plus chère de 6 h à 22 h pour les abonnés Tempo.</p>
+        </div>
+      </div>
+    </article>
+  </aside>
+
+  <!-- ================= Brief + chat ================= -->
+  <section class="brief" aria-label="Brief du matin et questions">
+    <article class="card">
+      <h2 class="card-title">Le brief du matin</h2>
+      <p class="brief-text">
+        Mardi, la France a consommé en moyenne 63,4 GW, un niveau typique d'un janvier froid.
+        Le nucléaire a couvert 62 % de la demande, épaulé le soir par les barrages. Le pays est
+        resté exportateur toute la journée, surtout vers l'Italie et la Grande-Bretagne.
+        À noter : demain est un jour Tempo rouge, l'électricité y sera plus chère en journée.
+      </p>
+      <p class="brief-meta">Rédigé par IA à partir des données RTE de la veille · mercredi 28 janvier, 07:30 · exemple de rédaction</p>
+    </article>
+    <article class="card">
+      <h2 class="card-title">Pose ta question</h2>
+      <div class="chat-q">
+        <button class="chat-chip" type="button">La France exporte-t-elle en ce moment ?</button>
+        <button class="chat-chip" type="button">Record de conso cet hiver ?</button>
+        <button class="chat-chip" type="button">Part du solaire hier à midi ?</button>
+        <button class="chat-chip" type="button">Pourquoi demain est rouge ?</button>
+      </div>
+      <div class="chat-input" aria-hidden="true"><span>&gt;</span> Écris ta question en français...</div>
+    </article>
+  </section>
+
+  <!-- ================= Métropoles ================= -->
+  <section class="card metros" aria-label="Consommation des métropoles">
+    <h2 class="card-title">Métropoles <span class="hint">consommation instantanée · tendance 6 h</span></h2>
+    <div class="metros-grid" id="metros-grid"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>Données : RTE via ODRÉ (open data)</span>
+    <span>Projet indépendant, non affilié à RTE</span>
+    <a href="#">Mentions légales</a>
+    <a href="#">À propos</a>
+    <a href="https://github.com/FaridP92/courant">GitHub</a>
+    <span style="margin-left:auto">Maquette Phase 0 · données fictives</span>
+  </div>
+</footer>
+
+<script>
+/* Maquette statique : les tableaux ci-dessous sont des données FICTIVES
+   d'illustration (voir bandeau). Le rendu réel utilisera ECharts + vraies données. */
+
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+/* ---- échantillonnage Catmull-Rom pour des courbes douces ---- */
+function sampleSmooth(values, subdiv = 6) {
+  const out = [];
+  const n = values.length;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = values[Math.max(0, i - 1)];
+    const p1 = values[i];
+    const p2 = values[i + 1];
+    const p3 = values[Math.min(n - 1, i + 2)];
+    for (let s = 0; s < subdiv; s++) {
+      const t = s / subdiv;
+      out.push(
+        0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t)
+      );
+    }
+  }
+  out.push(values[n - 1]);
+  return out;
+}
+
+/* ---- scénario fictif : 25 points horaires (00h à 24h), en GW ---- */
+const NOW_H = 19.0; /* dernier point complet : 19:00 */
+const loadActual        = [61.2,59.8,58.4,57.6,57.2,57.9,60.1,64.3,68.0,69.4,69.0,68.2,67.5,66.1,64.8,64.0,64.6,66.8,70.2,71.8,71.3,69.6,66.9,63.8,61.5];
+const forecastDayBefore = [60.0,58.9,57.7,57.0,56.8,57.4,59.2,62.8,66.2,67.8,67.6,67.0,66.4,65.2,64.0,63.3,63.8,65.5,68.3,69.0,68.7,67.3,64.9,62.2,60.1];
+const forecastToday     = [60.8,59.5,58.2,57.4,57.0,57.7,59.8,63.9,67.4,68.9,68.6,67.9,67.2,65.8,64.5,63.7,64.2,66.2,69.4,70.9,70.4,68.8,66.2,63.2,60.9];
+
+const fuels = [
+  { key: 'nuclear', name: 'Nucléaire',   color: css('--fuel-nuclear'),
+    vals: [43.6,43.6,43.5,43.5,43.5,43.6,43.8,44.0,44.2,44.3,44.3,44.2,44.2,44.1,44.0,44.0,44.1,44.4,44.7,44.9,44.9,44.7,44.4,44.0,43.8] },
+  { key: 'hydro',   name: 'Hydraulique', color: css('--fuel-hydro'),
+    vals: [6.2,5.6,5.1,4.9,4.8,5.0,6.0,8.2,9.4,9.0,8.2,7.6,7.2,6.8,6.5,6.6,7.4,9.2,11.6,12.6,12.2,10.8,8.8,7.2,6.4] },
+  { key: 'gas',     name: 'Gaz',         color: css('--fuel-gas'),
+    vals: [2.6,2.4,2.2,2.1,2.1,2.2,2.6,3.4,4.0,3.8,3.4,3.1,2.9,2.7,2.6,2.7,3.1,4.0,4.9,5.2,5.0,4.4,3.6,3.0,2.7] },
+  { key: 'wind',    name: 'Éolien',      color: css('--fuel-wind'),
+    vals: [6.8,6.9,7.1,7.2,7.4,7.5,7.6,7.6,7.5,7.3,7.1,7.0,6.9,7.0,7.2,7.5,7.8,8.1,8.3,8.4,8.5,8.6,8.6,8.5,8.4] },
+  { key: 'solar',   name: 'Solaire',     color: css('--fuel-solar'),
+    vals: [0,0,0,0,0,0,0,0,0.4,1.6,3.2,4.6,5.4,5.5,4.8,3.4,1.6,0.3,0,0,0,0,0,0,0] },
+  { key: 'bio',     name: 'Bioénergies', color: css('--fuel-bio'),
+    vals: [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.1,2.0,2.0,2.0] },
+  { key: 'coal',    name: 'Charbon',     color: css('--fuel-coal'),
+    vals: [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.3,0.3,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.3,0.35,0.35,0.3,0.25,0.2,0.15,0.1] },
+  { key: 'oil',     name: 'Fioul',       color: css('--fuel-oil'),
+    vals: [0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.15,0.15,0.15,0.1,0.1,0.05,0.05] },
+];
+
+/* ---- géométrie partagée des deux graphes (la colonne du temps) ---- */
+const G = { left: 46, right: 714, yMax: 80 };
+const xAt = (h) => G.left + (h / 24) * (G.right - G.left);
+const NOW_X = xAt(NOW_H);
+const svgNS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs) => {
+  const node = document.createElementNS(svgNS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+};
+
+function axes(svg, height, plotTop, plotBottom, withXLabels, yMin = 0, yMax = G.yMax, yStep = 20) {
+  for (let gw = yMin; gw <= yMax; gw += yStep) {
+    const y = plotBottom - ((gw - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
+    svg.append(el('line', { x1: G.left, x2: G.right, y1: y, y2: y, stroke: '#1a2932', 'stroke-width': 1 }));
+    const lbl = el('text', { x: G.left - 8, y: y + 3.5, 'text-anchor': 'end', fill: css('--ink-40'),
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 10 });
+    lbl.textContent = gw === 0 ? '0' : String(gw);
+    svg.append(lbl);
+  }
+  const unit = el('text', { x: G.left - 8, y: plotTop - 7, 'text-anchor': 'end', fill: css('--ink-40'),
+    'font-family': 'IBM Plex Mono, monospace', 'font-size': 10 });
+  unit.textContent = 'GW';
+  svg.append(unit);
+  if (withXLabels) {
+    for (let h = 0; h <= 24; h += 6) {
+      const t = el('text', { x: xAt(h), y: height - 6, 'text-anchor': 'middle', fill: css('--ink-40'),
+        'font-family': 'IBM Plex Mono, monospace', 'font-size': 10 });
+      t.textContent = String(h).padStart(2, '0') + 'h';
+      svg.append(t);
+    }
+  }
+}
+
+function linePath(values, plotTop, plotBottom, untilH = 24, yMin = 0, yMax = G.yMax) {
+  const dense = sampleSmooth(values);
+  const step = 24 / (dense.length - 1);
+  let d = '';
+  for (let i = 0; i < dense.length; i++) {
+    const h = i * step;
+    if (h > untilH + 1e-6) break;
+    const x = xAt(h);
+    const y = plotBottom - ((dense[i] - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
+    d += (d ? ' L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+  }
+  return d;
+}
+
+function nowCursor(svg, top, bottom, withChip) {
+  svg.append(el('line', { x1: NOW_X, x2: NOW_X, y1: top, y2: bottom, stroke: css('--accent'),
+    'stroke-width': 1.5, 'stroke-dasharray': '2 4', opacity: 0.9 }));
+  if (withChip) {
+    const chip = el('g', {});
+    chip.append(el('rect', { x: NOW_X - 44, y: top - 2, width: 88, height: 16, rx: 8, fill: 'rgba(46,230,255,0.14)', stroke: css('--accent'), 'stroke-width': 0.6 }));
+    const t = el('text', { x: NOW_X, y: top + 9.5, 'text-anchor': 'middle', fill: css('--accent'),
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 9.5, 'letter-spacing': '1.5' });
+    t.textContent = 'MAINTENANT';
+    chip.append(t);
+    svg.append(chip);
+  }
+}
+
+/* ---- graphe héro : conso vs prévisions ---- */
+(function heroChart() {
+  const svg = document.getElementById('chart-load');
+  const top = 26, bottom = 214, yMin = 40, yMax = 80;
+  const yOf = (v) => bottom - ((v - yMin) / (yMax - yMin)) * (bottom - top);
+  axes(svg, 240, top, bottom, false, yMin, yMax, 10);
+  /* nuit grisée */
+  svg.prepend(el('rect', { x: G.left, y: top, width: xAt(7.5) - G.left, height: bottom - top, fill: 'rgba(255,255,255,0.018)' }));
+  svg.append(el('path', { d: linePath(forecastDayBefore, top, bottom, 24, yMin, yMax), fill: 'none', stroke: '#7b96a4', 'stroke-width': 1.6, 'stroke-dasharray': '5 5' }));
+  svg.append(el('path', { d: linePath(forecastToday, top, bottom, 24, yMin, yMax), fill: 'none', stroke: '#77b6c6', 'stroke-width': 1.6, 'stroke-dasharray': '2 4' }));
+  /* réalisé : s'arrête au dernier point complet (19:00), halo puis trait */
+  const dReal = linePath(loadActual, top, bottom, NOW_H, yMin, yMax);
+  svg.append(el('path', { d: dReal, fill: 'none', stroke: 'rgba(46,230,255,0.25)', 'stroke-width': 6, 'stroke-linecap': 'round' }));
+  svg.append(el('path', { d: dReal, fill: 'none', stroke: css('--accent'), 'stroke-width': 2.2, 'stroke-linecap': 'round' }));
+  nowCursor(svg, top - 14, bottom, true);
+  /* point courant */
+  const yNow = yOf(71.8);
+  svg.append(el('circle', { cx: NOW_X, cy: yNow, r: 4, fill: css('--accent') }));
+  svg.append(el('circle', { cx: NOW_X, cy: yNow, r: 8, fill: 'none', stroke: css('--accent'), opacity: 0.35 }));
+  /* labels directs des prévisions, à droite */
+  const lbl = (text, y, color) => {
+    const t = el('text', { x: G.right + 4, y, fill: color, 'font-family': 'IBM Plex Mono, monospace', 'font-size': 9.5 });
+    t.textContent = text;
+    svg.append(t);
+  };
+  lbl('J', yOf(60.9) - 5, '#77b6c6');
+  lbl('J-1', yOf(60.1) + 8, '#7b96a4');
+})();
+
+/* ---- graphe mix : aires empilées ---- */
+(function mixChart() {
+  const svg = document.getElementById('chart-mix');
+  const top = 14, bottom = 182;
+  axes(svg, 210, top, bottom, true, 0, G.yMax, 20);
+  const dense = fuels.map((f) => sampleSmooth(f.vals));
+  const nPts = dense[0].length;
+  const step = 24 / (nPts - 1);
+  let lower = new Array(nPts).fill(0);
+  const yOf = (v) => bottom - (v / G.yMax) * (bottom - top);
+  for (let fi = 0; fi < fuels.length; fi++) {
+    const upper = lower.map((v, i) => v + dense[fi][i]);
+    let d = '';
+    for (let i = 0; i < nPts; i++) d += (d ? ' L' : 'M') + xAt(i * step).toFixed(1) + ' ' + yOf(upper[i]).toFixed(1);
+    for (let i = nPts - 1; i >= 0; i--) d += ' L' + xAt(i * step).toFixed(1) + ' ' + yOf(lower[i]).toFixed(1);
+    d += ' Z';
+    /* gap de 2px couleur surface entre segments : contour panel (accessibilité daltonisme) */
+    svg.append(el('path', { d, fill: fuels[fi].color, stroke: css('--panel'), 'stroke-width': 2, 'stroke-linejoin': 'round', opacity: 0.92 }));
+    lower = upper;
+  }
+  nowCursor(svg, top, bottom, false);
+  /* labels directs sur les filières majeures (couleur choisie pour >= 4,5:1 sur l'aire) */
+  const direct = (text, h, gwMid, color) => {
+    const t = el('text', { x: xAt(h), y: yOf(gwMid), 'text-anchor': 'middle', fill: color,
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 10.5, 'font-weight': 600 });
+    t.textContent = text;
+    svg.append(t);
+  };
+  direct('Nucléaire', 12, 22, '#0a1216');
+  direct('Hydraulique', 19.6, 49.5, '#eaf3f6');
+  /* légende avec valeur courante */
+  const legend = document.getElementById('mix-legend');
+  const nowVals = { nuclear: '44,9', hydro: '12,6', gas: '5,2', wind: '8,4', solar: '0,0', bio: '2,1', coal: '0,35', oil: '0,15' };
+  for (const f of fuels) {
+    const s = document.createElement('span');
+    s.className = 'legend-item';
+    s.innerHTML = '<i style="background:' + f.color + '"></i> ' + f.name + ' <b>' + nowVals[f.key] + '</b>';
+    legend.append(s);
+  }
+})();
+
+/* ---- sparklines KPI et métropoles ---- */
+function sparkline(id, values, color, fillArea) {
+  const svg = typeof id === 'string' ? document.getElementById(id) : id;
+  const dense = sampleSmooth(values, 4);
+  const min = Math.min(...dense), max = Math.max(...dense);
+  const pad = (max - min) * 0.15 || 1;
+  const y = (v) => 27 - ((v - min + pad) / (max - min + 2 * pad)) * 24;
+  const x = (i) => (i / (dense.length - 1)) * 118 + 1;
+  let d = '';
+  for (let i = 0; i < dense.length; i++) d += (d ? ' L' : 'M') + x(i).toFixed(1) + ' ' + y(dense[i]).toFixed(1);
+  if (fillArea) {
+    svg.append(el('path', { d: d + ' L119 30 L1 30 Z', fill: color, opacity: 0.14, stroke: 'none' }));
+  }
+  svg.append(el('path', { d, fill: 'none', stroke: color, 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke' }));
+  const lastX = x(dense.length - 1), lastY = y(dense[dense.length - 1]);
+  svg.append(el('circle', { cx: lastX, cy: lastY, r: 2.4, fill: color }));
+}
+
+const last6h = (arr) => arr.slice(13, 20); /* 13h à 19h */
+/* renouvelables = hydraulique + éolien + solaire + bioénergies (cohérent avec le KPI 31 %) */
+const renewables6h = last6h(fuels[1].vals).map(
+  (v, i) => v + last6h(fuels[3].vals)[i] + last6h(fuels[4].vals)[i] + last6h(fuels[5].vals)[i],
+);
+/* solde échanges = production totale - consommation, dérivé des mêmes tableaux */
+const balance6h = last6h(loadActual).map((load, i) =>
+  fuels.reduce((sum, f) => sum + last6h(f.vals)[i], 0) - load,
+);
+sparkline('spark-load', last6h(loadActual), css('--accent'), true);
+sparkline('spark-nuclear', last6h(fuels[0].vals), css('--fuel-nuclear'), false);
+sparkline('spark-renewables', renewables6h, css('--fuel-hydro'), false);
+sparkline('spark-co2', [41, 40, 39, 39, 38, 39, 38], css('--ink-60'), false);
+sparkline('spark-balance', balance6h, css('--ink-60'), false);
+
+/* ---- carte : régions métropolitaines (GeoJSON officiel simplifié hors ligne) ---- */
+(function map() {
+  const svg = document.getElementById('map');
+  /* Généré par scripts d'outillage : france-geojson (IGN Admin Express, licence ouverte),
+     simplifié Douglas-Peucker puis projeté (équirectangulaire compensée, 300x290). */
+  const REGIONS = [{"code":"11","name":"Île-de-France","d":"M156.4 75.0L166.0 74.5L166.1 76.7L171.4 80.6L169.9 82.8L171.2 83.4L170.8 85.9L172.6 86.3L170.1 88.5L170.2 91.8L164.1 92.6L163.5 93.9L164.1 95.3L162.2 97.4L160.3 98.2L158.8 97.3L157.6 98.4L153.9 98.3L155.2 97.3L155.2 95.8L153.6 95.0L153.2 93.5L150.6 94.1L149.9 93.0L149.2 94.1L146.0 94.3L146.3 92.5L145.3 90.2L143.1 90.0L142.9 87.9L139.8 85.2L139.7 80.9L137.2 75.8L140.2 74.9L141.6 71.1L142.4 72.7L147.8 71.8L150.3 73.3L151.7 72.4L156.4 75.0Z"},{"code":"24","name":"Centre-Val de Loire","d":"M161.2 113.1L162.1 115.0L161.2 117.9L163.0 119.4L163.6 124.1L164.5 125.0L164.3 130.0L160.7 132.4L158.5 132.0L156.0 134.2L156.8 136.7L152.5 137.6L151.2 139.9L142.9 139.0L141.9 140.6L138.4 139.8L136.7 141.7L135.7 140.4L132.7 141.0L133.3 139.6L132.2 139.2L132.1 137.8L128.2 135.5L128.2 132.5L124.7 128.1L124.5 126.4L122.4 125.6L122.9 126.8L118.3 127.4L118.0 124.5L115.8 124.3L116.0 123.0L114.3 122.9L113.8 121.8L114.2 118.8L116.0 116.5L115.5 116.0L116.8 110.9L119.2 111.9L119.3 110.1L120.4 110.6L122.9 109.3L122.6 108.4L124.7 107.1L125.9 105.3L125.7 103.8L126.5 104.1L127.1 102.8L126.2 99.7L128.3 98.0L126.2 96.8L126.8 96.2L126.4 94.3L125.6 94.0L129.3 90.6L128.6 89.8L129.1 88.6L126.7 86.5L126.5 85.1L127.8 83.8L131.6 83.1L131.7 82.1L135.2 82.8L136.0 82.3L135.8 81.0L137.5 80.0L137.6 78.4L139.7 80.9L139.8 85.2L142.9 87.9L143.1 90.0L145.3 90.2L145.3 91.5L146.1 91.6L146.0 94.3L152.0 93.2L155.2 95.8L155.2 97.3L153.9 98.3L158.3 98.4L159.8 97.2L159.9 98.2L162.5 97.3L163.8 98.1L165.4 102.1L163.4 103.7L163.7 106.5L160.8 107.3L162.9 111.9L160.9 112.3L161.2 113.1Z"},{"code":"27","name":"Bourgogne-Franche-Comté","d":"M173.8 131.9L173.2 131.6L172.7 133.4L170.9 134.3L170.6 132.8L166.6 133.6L163.9 131.2L164.5 125.0L163.6 124.1L163.0 119.4L161.2 117.9L162.1 115.0L160.7 112.5L162.9 111.9L160.8 107.3L163.7 106.5L163.4 103.7L165.4 102.1L163.8 98.1L162.2 97.3L164.1 95.3L163.5 93.9L164.1 92.6L169.7 91.6L171.6 92.3L173.7 95.0L172.9 96.8L174.5 98.0L175.8 97.3L177.9 101.0L177.5 101.8L178.6 101.8L178.4 103.2L181.9 103.2L183.5 102.0L185.0 103.2L185.3 102.3L189.4 102.2L189.1 101.2L189.9 100.6L193.3 101.2L193.3 102.2L194.6 102.8L194.1 103.6L195.2 103.3L196.8 105.8L195.5 106.8L196.3 109.0L197.3 108.4L199.0 110.0L199.9 109.1L201.2 110.6L201.1 111.7L202.8 111.3L203.9 109.2L208.5 109.1L208.5 105.7L210.8 105.0L212.5 101.9L212.8 102.9L215.9 100.8L217.1 103.0L220.2 102.3L221.7 104.2L223.9 102.7L230.7 107.6L231.3 109.1L230.5 111.1L231.8 111.2L232.9 113.0L230.2 113.7L230.5 114.7L228.4 117.2L230.7 116.7L231.4 117.6L229.5 118.8L229.7 119.8L225.5 123.8L225.7 124.5L220.9 127.5L221.2 131.3L215.5 136.1L216.3 136.8L215.1 139.4L211.5 143.7L209.0 143.8L207.7 141.7L204.8 143.7L204.7 142.3L204.0 141.7L203.7 142.6L203.2 140.8L201.9 140.1L202.1 139.3L200.2 137.8L197.8 138.3L195.9 137.5L193.2 145.8L192.3 145.8L191.5 142.7L190.5 143.7L186.9 142.9L186.3 145.6L184.8 146.4L183.6 145.4L179.9 146.0L178.2 144.9L178.2 143.2L180.1 142.2L180.1 138.9L175.7 137.0L173.8 131.9Z"},{"code":"28","name":"Normandie","d":"M94.1 68.3L97.0 67.3L109.1 70.1L111.4 69.7L115.1 67.1L118.6 66.4L114.9 65.7L114.0 64.5L116.3 59.5L122.7 56.2L131.5 54.1L135.9 51.0L137.2 50.9L141.1 54.6L142.9 58.3L141.3 60.0L142.3 60.3L141.3 62.8L142.2 63.8L141.7 64.7L143.0 64.7L141.7 67.0L143.0 70.9L141.6 70.5L140.0 75.0L137.2 75.7L137.6 77.6L138.4 77.5L137.2 78.8L137.4 80.1L135.8 81.0L136.0 82.3L131.7 82.1L131.6 83.1L127.8 83.8L126.5 85.1L126.7 86.5L129.1 88.6L128.6 89.8L129.3 90.7L125.8 93.5L126.8 96.2L125.7 97.0L124.4 95.1L121.9 95.3L121.1 93.8L119.5 93.5L119.3 91.0L117.9 89.6L112.0 92.2L112.0 90.3L110.4 90.2L110.5 88.5L109.4 87.6L107.0 89.6L104.3 88.9L100.1 90.7L98.7 89.2L92.6 88.1L89.7 90.2L87.9 89.4L86.5 86.1L90.2 86.0L89.4 85.4L89.8 84.5L88.6 85.4L87.6 84.6L85.8 81.0L86.7 78.6L86.9 79.5L86.7 76.3L87.6 76.5L86.7 76.1L86.4 77.0L86.0 76.1L85.8 71.6L86.5 71.6L85.6 71.8L84.2 69.0L84.8 68.9L82.5 67.9L81.2 64.1L81.8 61.5L80.2 60.5L80.2 59.5L85.8 61.3L88.1 60.0L91.6 60.0L92.3 62.2L90.9 63.8L93.2 66.9L93.1 68.1L94.1 68.3Z"},{"code":"32","name":"Hauts-de-France","d":"M182.4 53.1L184.0 53.6L184.3 55.7L183.5 58.0L184.3 58.5L182.0 61.5L180.5 61.8L181.3 63.0L180.7 68.2L177.1 67.1L177.6 68.5L174.1 69.3L174.2 71.7L175.8 73.1L173.7 73.3L174.0 75.1L173.1 76.0L174.7 76.6L171.0 80.9L166.1 76.7L166.5 75.7L165.6 74.4L158.8 75.5L151.7 72.4L150.3 73.3L147.8 71.8L144.5 73.0L142.1 72.6L141.6 70.6L143.2 70.3L141.7 67.0L143.0 64.7L141.7 64.7L142.2 63.8L141.3 62.8L141.4 61.3L142.3 60.0L141.3 60.0L142.9 58.3L141.1 54.6L137.2 50.9L136.1 51.0L138.5 47.5L141.2 48.1L138.7 45.8L139.0 43.8L140.5 44.0L139.0 42.9L139.5 39.5L140.8 40.2L139.4 38.6L139.5 31.3L142.8 29.3L148.5 28.4L149.0 27.3L149.5 28.0L149.4 27.1L155.6 26.0L157.1 29.5L156.4 30.1L156.5 31.9L158.6 32.8L159.7 34.8L161.7 35.7L162.4 34.2L165.8 33.3L167.7 35.5L168.1 39.7L173.5 40.4L175.2 45.2L175.8 44.0L180.5 43.8L182.3 46.3L183.6 45.9L182.2 49.3L183.4 49.3L183.9 50.8L182.6 51.6L182.4 53.1Z"},{"code":"44","name":"Grand Est","d":"M184.0 53.6L187.6 54.1L191.7 52.7L191.7 50.5L193.9 48.4L195.1 49.2L193.3 53.3L195.0 54.8L194.4 57.6L196.8 57.4L199.6 60.1L201.4 60.0L202.4 61.0L202.1 62.0L204.1 62.4L204.7 64.8L209.8 63.2L214.4 66.0L217.7 64.4L222.8 66.4L223.8 68.0L223.2 68.5L224.9 70.1L226.1 73.0L227.7 73.3L227.7 71.8L229.2 71.5L231.0 72.3L231.4 74.2L232.1 73.2L235.4 74.2L237.9 72.5L241.1 75.6L246.1 75.5L251.2 77.8L243.9 87.0L242.9 93.4L240.1 98.4L240.0 100.5L240.9 102.0L239.0 108.8L240.4 111.2L237.2 115.1L233.3 114.9L233.8 113.7L232.6 113.5L231.8 111.2L230.5 111.1L231.3 109.1L230.7 107.6L223.9 102.7L221.7 104.2L220.2 102.3L217.1 103.0L215.9 100.8L212.8 102.9L212.5 101.9L210.8 105.0L208.5 105.7L208.5 109.1L203.9 109.2L202.8 111.3L201.1 111.7L201.2 110.6L199.9 109.1L199.0 110.0L197.3 108.4L196.3 109.0L195.5 106.8L196.8 105.8L195.2 103.3L194.1 103.6L194.6 102.8L193.3 102.2L193.3 101.2L189.9 100.6L189.1 101.2L189.4 102.2L185.3 102.3L185.0 103.2L183.5 102.0L181.9 103.2L178.3 103.1L178.6 101.8L177.5 101.8L177.9 101.0L175.8 97.3L174.5 98.0L173.0 96.9L173.6 94.7L171.6 92.3L170.4 92.6L169.8 91.0L169.7 89.7L170.6 89.4L170.1 88.5L172.6 86.3L170.8 85.9L171.2 83.4L170.0 82.9L170.7 82.1L170.1 81.6L171.5 81.5L171.4 80.2L174.7 76.6L173.1 76.0L174.0 75.1L173.7 73.3L175.8 73.1L174.2 71.7L174.1 69.3L177.6 68.5L177.1 67.1L180.7 68.2L181.3 63.0L180.5 61.8L182.0 61.5L184.3 58.5L183.5 58.0L184.3 55.7L184.0 53.6Z"},{"code":"52","name":"Pays de la Loire","d":"M71.6 114.8L74.0 114.5L74.3 113.2L76.5 113.8L77.6 112.7L77.9 109.9L85.1 108.5L85.6 107.1L88.2 106.2L88.1 105.4L92.0 106.8L93.5 102.2L95.8 101.3L94.4 95.0L95.3 93.4L95.1 88.8L98.7 89.2L100.1 90.7L104.3 88.9L107.0 89.6L109.4 87.6L110.5 88.5L110.4 90.2L112.0 90.3L112.0 92.2L117.9 89.6L119.3 91.0L119.7 93.7L121.1 93.8L121.9 95.3L124.4 95.1L125.4 96.9L128.3 98.0L126.2 99.7L127.1 102.8L126.5 104.1L125.7 103.8L125.9 105.3L124.7 107.1L122.6 108.4L123.2 109.1L120.4 110.6L119.3 110.1L119.2 111.9L116.8 110.9L115.5 116.0L116.0 116.5L112.3 123.7L111.4 123.3L110.7 124.4L109.9 123.1L104.8 124.5L105.2 123.7L104.6 123.7L102.9 125.8L97.7 126.5L101.2 130.4L100.7 131.5L102.6 135.0L102.1 140.5L103.9 140.7L101.9 142.5L99.4 141.8L97.3 142.6L96.7 142.3L97.3 141.1L92.7 142.5L92.6 143.7L82.5 138.1L81.7 135.3L76.9 130.2L76.7 128.5L79.6 125.1L77.6 123.0L75.1 122.5L76.5 121.7L76.4 119.2L74.3 120.1L70.1 118.7L70.9 117.7L69.9 116.6L72.0 115.7L71.6 114.8Z M74.2 132.8L72.6 132.4L74.2 132.8Z M76.0 126.9L74.1 125.2L75.5 125.3L75.4 126.4L76.8 127.3L76.7 128.3L76.0 126.9Z"},{"code":"53","name":"Bretagne","d":"M62.5 81.0L62.7 80.3L62.5 81.0Z M52.7 82.0L52.7 82.0Z M79.2 87.6L79.4 89.4L80.2 88.7L79.5 87.1L80.1 87.2L78.8 85.5L81.9 84.0L81.9 86.3L86.5 86.1L88.9 90.1L91.8 88.1L94.9 89.0L95.3 93.4L94.4 95.0L95.8 101.3L93.5 102.2L92.0 106.8L88.1 105.4L88.2 106.2L85.6 107.1L85.1 108.5L77.9 109.9L77.6 112.7L76.5 113.8L74.3 113.2L74.0 114.5L71.2 115.0L70.9 113.7L72.2 113.7L68.7 113.4L69.8 112.7L69.4 112.0L68.1 112.4L68.9 112.9L68.0 113.8L66.0 113.9L63.9 112.4L67.0 112.5L67.8 111.0L67.3 109.9L67.4 111.3L66.0 110.0L64.3 111.8L62.9 109.7L63.7 112.2L60.4 111.2L61.1 114.3L60.3 114.2L60.2 111.6L59.0 110.1L60.8 108.2L59.9 108.2L60.2 107.5L59.1 107.6L59.7 108.6L58.9 108.8L58.9 110.0L56.5 109.0L57.8 108.9L56.4 108.4L57.8 106.4L56.7 107.7L56.0 105.6L56.5 107.9L54.9 108.8L53.6 107.1L53.4 104.7L53.5 107.2L51.1 106.8L50.4 106.2L51.7 105.5L50.2 106.2L49.9 105.1L50.0 106.3L48.1 106.5L47.7 104.8L46.1 103.6L46.1 104.9L44.0 104.7L43.3 103.6L44.4 102.9L43.7 101.8L43.9 102.9L42.8 103.6L43.8 104.7L42.1 104.6L43.0 105.5L42.6 106.2L39.4 106.3L39.9 105.3L39.3 103.3L36.7 101.1L37.5 100.4L36.2 101.4L33.3 100.4L40.6 99.2L41.1 97.6L37.9 95.5L36.4 97.3L36.6 95.3L35.1 94.5L36.1 94.5L35.9 93.6L36.7 93.0L36.7 94.4L41.1 94.1L41.2 95.1L43.8 96.0L44.1 95.1L41.0 94.6L42.6 94.2L40.1 93.7L41.3 92.6L38.0 93.4L41.2 90.5L33.7 93.3L32.7 93.3L33.2 92.4L32.5 92.5L32.4 91.2L33.6 89.8L32.7 88.7L33.9 87.5L37.2 88.0L35.4 87.3L35.7 86.5L37.7 87.4L36.2 86.5L36.6 85.8L40.2 84.8L40.7 85.9L43.5 84.4L44.8 85.0L46.2 83.6L46.4 86.3L47.0 84.9L48.2 86.6L48.7 83.8L51.7 84.4L51.4 85.3L52.9 84.9L53.3 83.1L52.7 82.4L54.1 80.9L55.8 81.8L58.7 80.1L58.8 82.2L61.3 79.8L60.4 82.8L61.3 81.3L62.4 81.4L61.7 82.2L63.7 82.9L63.4 83.8L67.9 89.4L67.8 88.4L68.7 88.5L71.1 85.6L74.0 84.6L74.5 85.2L74.0 86.5L75.1 85.6L76.3 87.3L77.2 86.6L76.8 85.9L78.3 85.8L79.2 87.6Z M45.9 83.4L45.0 83.2L45.9 83.4Z M31.5 100.6L31.5 100.6Z M47.0 84.8L47.0 84.8Z M27.2 90.7L26.6 90.4L27.1 89.9L28.3 90.1L27.2 90.7Z M55.4 110.6L53.9 110.0L55.4 110.6Z M64.5 117.4L64.5 117.4Z M58.6 117.9L58.4 116.3L61.6 118.2L61.0 119.0L58.6 117.9Z M63.4 116.7L62.6 116.0L63.4 116.7Z M64.9 112.1L65.2 110.9L64.9 112.1Z M65.7 111.7L66.0 111.0L65.7 111.7Z"},{"code":"75","name":"Nouvelle-Aquitaine","d":"M136.7 141.7L138.4 139.8L141.9 140.6L142.9 139.0L150.7 139.8L152.0 140.9L151.9 142.1L154.5 143.3L155.9 145.9L156.7 151.0L153.0 154.4L155.3 157.2L155.2 158.9L154.2 160.0L155.2 161.1L154.7 164.4L155.3 165.0L152.4 164.5L152.5 166.3L149.7 169.1L150.4 170.6L148.1 173.2L148.7 174.9L144.9 175.1L143.1 176.5L140.3 173.7L136.6 174.4L137.1 177.5L134.7 179.5L135.0 180.9L132.1 182.6L131.4 185.0L129.4 185.7L130.8 189.7L128.7 190.5L127.9 189.6L127.5 191.4L128.9 192.2L128.1 194.3L127.2 194.5L127.9 195.6L126.1 195.4L126.3 196.2L124.0 198.4L122.9 197.0L118.0 199.2L115.0 198.9L113.8 199.9L113.9 201.5L112.5 200.7L113.0 200.1L112.3 199.3L111.3 200.7L109.1 201.1L109.8 202.2L109.1 203.6L109.6 205.4L108.2 208.3L111.3 209.1L112.6 211.8L111.8 212.0L111.8 213.3L112.8 212.5L113.4 214.9L112.1 216.0L112.6 216.7L111.7 219.0L109.6 220.5L109.8 222.1L108.1 223.2L107.7 226.9L106.5 228.2L104.5 227.5L103.4 228.7L100.6 225.9L100.2 224.1L97.0 224.5L93.7 223.2L90.9 221.7L91.6 220.5L90.3 221.1L90.2 222.7L88.7 222.2L88.1 221.2L89.7 218.7L89.6 217.0L87.1 216.2L85.9 217.2L85.6 215.9L83.8 216.1L82.9 214.8L85.9 212.8L88.6 207.7L90.9 194.8L91.7 185.7L92.8 182.9L96.0 183.1L93.3 180.0L91.7 183.5L93.5 162.9L94.6 160.8L96.3 160.3L92.2 158.0L92.0 155.5L93.8 155.0L93.2 153.7L94.2 153.6L95.0 151.4L94.1 150.1L95.2 149.9L93.4 146.4L92.0 146.2L94.2 143.8L94.0 142.3L95.2 141.6L97.3 141.1L96.7 142.3L97.3 142.6L99.4 141.8L100.8 142.8L103.9 140.7L102.1 140.5L102.7 139.1L102.1 137.4L102.8 136.8L100.7 131.5L101.2 130.4L97.7 126.5L102.9 125.8L104.6 123.7L105.2 123.7L104.8 124.5L109.9 123.1L110.7 124.4L113.7 121.6L114.3 122.9L116.0 123.0L115.8 124.3L118.0 124.5L118.3 127.4L122.9 126.8L122.4 125.6L124.5 126.4L124.7 128.1L128.2 132.5L128.3 135.6L132.1 137.8L132.2 139.2L133.3 139.6L132.7 141.0L135.7 140.4L136.7 141.7Z M88.0 145.0L89.2 144.5L91.8 146.2L87.1 145.2L86.6 144.2L87.7 143.9L88.0 145.0Z M93.1 150.0L93.1 150.0Z M91.9 153.9L89.6 151.3L89.2 149.0L92.1 150.5L92.9 152.9L92.3 154.9L91.9 153.9Z M92.1 184.5L92.1 184.5Z"},{"code":"76","name":"Occitanie","d":"M142.9 233.7L138.9 231.7L137.0 233.0L135.7 230.2L132.5 230.5L131.0 228.5L124.8 226.7L123.7 228.6L124.2 230.9L118.9 230.1L117.8 231.3L115.8 229.8L112.6 231.0L110.2 228.3L107.7 227.2L107.4 225.4L108.2 225.0L108.5 222.5L109.8 222.1L109.6 220.5L111.7 219.0L112.6 216.7L112.1 216.0L113.4 214.9L112.8 212.5L111.8 213.3L111.8 212.0L112.6 211.8L111.3 209.1L108.2 208.3L109.6 205.4L109.1 203.6L109.8 202.2L108.9 201.4L112.3 199.3L113.0 200.1L112.5 200.7L113.9 201.5L113.8 199.9L115.0 198.9L118.0 199.2L122.9 197.0L124.3 198.3L126.3 196.2L126.1 195.4L127.9 195.6L127.2 194.5L128.1 194.3L128.9 192.2L127.5 191.4L127.9 189.6L128.7 190.5L130.8 189.7L129.4 185.7L131.4 185.0L132.1 182.6L135.0 180.9L134.7 179.5L137.1 177.5L136.6 174.4L140.3 173.7L143.1 176.5L144.9 175.1L147.5 175.1L147.9 177.3L149.3 179.2L148.7 181.9L150.0 183.9L151.3 182.7L154.6 183.1L156.6 178.4L158.9 176.0L159.5 178.1L160.9 177.6L163.0 183.2L165.0 177.3L166.4 177.9L167.4 176.0L169.5 175.2L171.3 179.2L173.2 178.8L173.9 177.5L178.0 180.9L178.5 184.5L181.2 189.1L180.8 191.2L182.2 190.7L184.4 192.5L185.5 190.7L186.6 190.5L186.7 191.9L187.5 192.0L187.7 190.7L188.6 190.6L190.8 192.0L192.2 194.4L192.2 197.0L194.2 198.7L190.8 202.2L190.6 206.6L188.2 206.3L187.2 208.1L187.8 209.0L185.3 209.8L183.9 212.1L182.2 211.4L182.0 210.0L180.0 210.0L174.1 214.0L171.8 216.7L169.5 216.5L166.1 219.5L164.1 223.7L163.7 230.6L164.1 234.5L165.6 235.2L166.2 237.1L162.4 236.0L157.8 237.9L157.8 239.4L155.4 239.6L150.8 237.0L146.7 239.3L145.4 236.7L142.0 235.7L142.9 233.7Z M111.2 217.4L110.5 216.7L111.0 215.8L111.2 217.4Z M111.2 214.6L111.8 214.7L111.6 215.9L111.2 214.6Z"},{"code":"84","name":"Auvergne-Rhône-Alpes","d":"M193.2 145.8L195.9 137.5L197.8 138.3L200.2 137.8L202.1 139.3L201.9 140.1L203.2 140.8L203.7 142.6L204.0 141.7L204.7 142.3L204.8 143.7L207.7 141.7L209.0 143.8L211.5 143.7L215.3 140.2L216.5 141.2L215.4 143.2L215.7 144.0L213.2 144.9L212.9 147.0L215.9 146.7L218.6 144.7L218.8 143.9L217.6 143.4L218.8 141.2L220.2 141.9L222.2 140.3L225.8 140.2L227.2 140.5L226.6 141.6L228.2 143.3L227.0 146.8L228.8 147.1L228.4 149.0L229.3 148.5L231.1 151.3L230.3 153.4L227.4 154.2L227.2 156.9L230.5 158.9L230.4 162.2L233.5 164.6L232.3 166.6L232.8 168.3L229.9 169.5L228.6 171.2L226.5 170.7L222.2 171.9L221.8 173.2L219.8 172.8L219.3 171.6L217.5 171.9L217.1 174.2L219.1 174.6L219.6 178.1L213.9 178.6L212.8 179.3L212.8 180.4L210.7 180.4L210.1 183.0L207.6 183.1L206.9 185.7L208.0 186.7L207.1 187.5L204.6 186.8L205.2 188.3L203.9 188.6L204.1 189.9L207.5 190.8L207.1 191.5L208.4 192.4L207.7 194.8L208.2 195.4L207.0 194.3L204.5 196.0L202.8 193.7L199.5 193.3L199.7 191.3L193.9 193.4L192.9 191.0L191.0 190.9L191.0 192.4L188.5 190.6L186.8 191.9L186.6 190.5L184.4 192.5L182.2 190.7L180.9 191.2L181.2 189.1L178.5 184.5L178.0 180.9L173.9 177.5L173.2 178.8L171.3 179.2L169.5 175.1L167.4 176.0L166.4 177.9L165.0 177.3L163.0 183.2L160.9 177.6L159.5 178.1L158.9 176.0L156.9 177.8L155.9 181.4L154.3 183.3L151.3 182.7L150.0 183.9L148.7 181.9L149.3 179.2L147.9 177.3L147.5 175.1L148.8 174.8L148.1 173.2L150.4 170.6L149.7 169.1L152.5 166.3L152.4 164.5L155.3 165.2L154.7 164.4L155.2 161.1L154.2 160.0L155.2 158.9L155.3 157.2L153.0 154.4L156.7 150.8L155.1 144.3L151.5 141.8L152.2 141.3L151.3 140.8L151.2 139.2L152.6 137.5L156.8 136.7L156.0 134.2L158.3 132.1L160.7 132.4L161.8 130.9L163.6 130.6L166.6 133.6L170.4 132.7L171.4 134.3L173.3 131.6L175.4 134.9L175.7 137.0L180.1 138.9L180.1 142.2L178.3 143.0L178.4 145.0L184.8 146.4L186.3 145.6L186.9 142.9L190.5 143.7L191.5 142.7L192.3 145.8L193.2 145.8Z"},{"code":"93","name":"Provence-Alpes-Côte d'Azur","d":"M229.6 183.0L229.9 183.8L228.0 186.0L229.6 188.5L228.6 188.7L228.6 190.1L230.6 193.2L236.5 196.1L241.8 194.6L242.5 196.9L241.4 199.6L238.8 202.1L239.3 204.1L238.6 205.1L233.1 207.4L232.7 210.1L229.8 210.1L228.0 213.3L226.2 213.2L225.7 214.9L223.5 216.6L225.4 216.8L224.5 219.3L220.1 219.8L219.8 221.2L217.0 220.5L216.1 222.7L215.2 222.5L215.9 222.2L215.6 221.3L212.3 220.3L211.6 220.8L212.8 221.7L210.8 222.2L210.2 221.7L210.4 220.5L208.4 219.0L202.6 218.2L203.1 216.2L202.1 214.6L197.7 215.4L196.4 213.0L195.1 213.5L194.5 212.3L194.8 213.3L193.9 213.0L194.7 213.8L194.0 214.2L195.5 214.1L194.1 215.3L189.9 214.6L189.4 214.0L189.9 213.0L189.0 212.3L183.9 212.1L185.3 209.8L187.8 209.0L187.2 208.1L188.2 206.3L190.6 206.6L190.8 202.2L194.2 199.2L191.9 196.4L192.2 194.4L191.0 192.6L191.0 190.9L193.2 191.2L193.9 193.4L199.7 191.3L199.5 193.3L202.8 193.7L204.5 196.0L207.0 194.3L208.2 195.4L207.7 194.8L208.4 192.4L207.1 191.5L207.5 190.8L204.1 189.9L203.9 188.6L205.2 188.3L204.6 186.8L207.1 187.5L208.0 186.7L206.9 185.7L207.6 183.1L210.1 183.0L210.7 180.4L212.8 180.4L212.8 179.3L213.9 178.6L219.6 178.1L219.1 174.6L217.1 174.2L218.0 171.5L221.2 173.3L222.2 171.9L224.1 171.7L225.0 174.1L226.2 174.2L226.3 176.9L230.8 178.9L230.4 179.7L231.7 182.3L229.6 183.0Z M231.6 210.8L231.0 210.6L231.6 210.8Z M202.0 216.6L202.0 216.6Z M221.0 223.0L222.2 222.2L221.0 223.0Z M220.3 223.5L220.7 223.0L220.3 223.5Z M217.7 222.9L216.4 223.4L217.7 222.9Z M195.1 190.0L196.4 188.4L198.1 189.7L196.6 191.8L195.0 191.5L195.1 190.0Z"},{"code":"94","name":"Corse","d":"M268.4 263.9L268.4 263.9Z M268.6 263.2L268.6 263.2Z M270.8 251.2L270.5 256.4L268.7 257.6L270.2 257.7L268.6 259.2L268.9 260.3L267.6 262.0L268.4 262.0L267.7 263.2L265.7 262.6L266.1 261.4L265.2 261.3L265.4 260.5L262.7 260.2L260.4 258.3L260.6 256.7L262.6 255.3L258.3 254.1L260.2 252.3L259.8 251.5L260.7 250.3L259.9 249.4L257.4 250.3L257.2 248.6L259.8 246.5L259.0 245.0L256.6 244.2L257.2 243.6L256.3 242.0L258.9 241.2L256.4 238.8L258.3 237.6L259.1 233.7L260.4 234.2L260.7 233.0L264.3 232.1L266.1 229.9L269.3 230.9L269.7 223.5L271.1 223.1L271.8 223.7L272.3 228.1L271.5 231.3L273.0 234.4L273.4 242.9L273.3 245.2L271.0 248.7L270.8 251.2Z"}];
+  /* consommation fictive par région (GW) : somme = 71,8 GW, cohérente avec le national */
+  const LOAD = { 11: 11.7, 84: 10.6, 44: 6.7, 32: 6.3, 93: 5.9, 75: 5.6, 76: 5.3, 52: 4.6, 28: 4.1, 53: 4.0, 27: 3.4, 24: 3.3, 94: 0.3 };
+  const LOAD_MAX = Math.max(...Object.values(LOAD));
+  for (const r of REGIONS) {
+    const gw = LOAD[Number(r.code)] ?? 1;
+    const p = el('path', {
+      d: r.d,
+      fill: css('--accent'),
+      'fill-opacity': (0.07 + (gw / LOAD_MAX) * 0.34).toFixed(3),
+      stroke: css('--line-strong'),
+      'stroke-width': 0.9,
+      'stroke-linejoin': 'round',
+    });
+    const title = document.createElementNS(svgNS, 'title');
+    title.textContent = r.name + ' · ' + String(gw).replace('.', ',') + ' GW (illustration)';
+    p.append(title);
+    svg.append(p);
+  }
+  /* flux frontaliers ancrés sur la vraie frontière : export sortant (accent), import entrant (gris) */
+  const flows = [
+    { name: 'GB', gw: '1,0', dir: 'out', anchor: [139.8, 29.4], vec: [-0.5, -0.75], label: [124, 14], align: 'end' },
+    { name: 'BE', gw: '0,4', dir: 'out', anchor: [183, 42], vec: [0.3, -0.9], label: [194, 24], align: 'start' },
+    { name: 'DE', gw: '0,6', dir: 'in', anchor: [245.6, 81.8], vec: [0.85, -0.4], label: [252, 64], align: 'start' },
+    { name: 'CH', gw: '0,7', dir: 'out', anchor: [227.1, 140.4], vec: [1, 0.05], label: [252, 136], align: 'start' },
+    { name: 'IT', gw: '1,2', dir: 'out', anchor: [230.4, 174.6], vec: [0.85, 0.4], label: [252, 194], align: 'start' },
+    { name: 'ES', gw: '0,8', dir: 'in', anchor: [123, 230.7], vec: [-0.15, 1], label: [112, 266], align: 'end' },
+  ];
+  const LEN = 20;
+  for (const f of flows) {
+    const out = f.dir === 'out';
+    const color = out ? css('--accent') : css('--fuel-imports');
+    const [ax, ay] = f.anchor;
+    const ox = ax + f.vec[0] * LEN, oy = ay + f.vec[1] * LEN;
+    /* export : de la frontière vers l'extérieur ; import : de l'extérieur vers la frontière */
+    const [x1, y1, x2, y2] = out ? [ax, ay, ox, oy] : [ox, oy, ax, ay];
+    svg.append(el('path', { d: `M${x1} ${y1} L${x2} ${y2}`, stroke: color, class: 'flow-line' }));
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const ah = (a) => `${(x2 - 6 * Math.cos(ang - a)).toFixed(1)} ${(y2 - 6 * Math.sin(ang - a)).toFixed(1)}`;
+    svg.append(el('path', { d: `M${x2} ${y2} L${ah(0.45)} M${x2} ${y2} L${ah(-0.45)}`, stroke: color, 'stroke-width': 2, 'stroke-linecap': 'round', fill: 'none' }));
+    const t = el('text', { x: f.label[0], y: f.label[1], fill: color, 'text-anchor': f.align,
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': 9.5, 'font-weight': 600,
+      'paint-order': 'stroke', stroke: '#0a1216', 'stroke-width': 3 });
+    t.textContent = `${f.name} ${out ? '↗' : '↘'} ${f.gw}`;
+    svg.append(t);
+  }
+})();
+
+/* ---- métropoles ---- */
+(function metros() {
+  const grid = document.getElementById('metros-grid');
+  const data = [
+    ['Paris', '7,9', [7.0, 7.1, 7.3, 7.5, 7.8, 7.9, 7.9]],
+    ['Lyon', '1,9', [1.7, 1.7, 1.8, 1.8, 1.9, 1.9, 1.9]],
+    ['Marseille', '1,6', [1.5, 1.5, 1.5, 1.6, 1.6, 1.7, 1.6]],
+    ['Toulouse', '1,1', [1.0, 1.0, 1.0, 1.1, 1.1, 1.1, 1.1]],
+    ['Lille', '1,2', [1.1, 1.1, 1.1, 1.2, 1.2, 1.3, 1.2]],
+    ['Nantes', '0,9', [0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 0.9]],
+  ];
+  for (const [name, val, series] of data) {
+    const div = document.createElement('div');
+    div.className = 'metro';
+    div.innerHTML = '<div class="metro-name">' + name + '</div>' +
+      '<div class="metro-val mono">' + val + ' <small>GW</small></div>';
+    const svg = el('svg', { viewBox: '0 0 120 30', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    div.append(svg);
+    grid.append(div);
+    sparkline(svg, series, css('--accent'), true);
+  }
+})();
+</script>
+</body>
+</html>
