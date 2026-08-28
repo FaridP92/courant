@@ -49,3 +49,17 @@ Rétention :
 - Régional complet depuis 2013 au quart d'heure : rejeté (plan payant requis d'emblée).
 - Fenêtre régionale 12 mois : gardé en solution de repli, perd la comparaison saisonnière N-1.
 - Nouveau projet Supabase dédié : impossible en free tier (2 projets actifs déjà occupés).
+
+## Annexe : chiffrage mesuré avant backfill (2026-08-29)
+
+Mesure sur échantillon réel chargé (96 lignes du 2026-01-15, colonnes à largeur fixe) :
+
+- Taille moyenne d'une ligne (pg_column_size) : 132 octets.
+- Projection national complet 2012-2026 (~508 000 lignes) : environ 95 à 110 Mo,
+  PK btree et marge de 15 % comprises (la formule "taille totale / 96 lignes" surestime
+  car les minima de pages dominent sur un si petit échantillon).
+- Free tier : 500 Mo. Le national complet en consomme environ 20 %, laissant une marge
+  confortable pour le régional 24 mois (~110 Mo estimés, à mesurer en Phase 3),
+  les agrégats et les vues matérialisées.
+
+Verdict : GO pour le backfill national complet, sans plan payant.
