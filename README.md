@@ -6,6 +6,9 @@ Le command center temps réel de l'électricité française. Que consomme la Fra
 On importe ou on exporte ? Demain, jour rouge ou jour vert ? Courant rend le système
 électrique lisible pour tout le monde, à partir des données publiques de RTE.
 
+**En ligne : [courant-sable.vercel.app](https://courant-sable.vercel.app)** ·
+[Maquette du command center](https://courant-sable.vercel.app/design/maquette.html)
+
 Projet indépendant, non affilié à RTE. Données : RTE via ODRÉ (open data).
 
 ## Ce que montre Courant
@@ -35,8 +38,8 @@ Décisions structurantes : voir [docs/adr](docs/adr).
 
 ## Avancement par phases
 
-- [x] Phase 0 : fondations (CI, tokens design, maquette statique, ADRs)
-- [ ] Phase 1 : données nationales (schéma Supabase, ingestion n8n, backfill 2012)
+- [x] Phase 0 : fondations (CI, tokens design, maquette statique, ADRs, déploiement)
+- [ ] Phase 1 : données nationales (schéma et marts livrés, backfill 2012 en cours)
 - [ ] Phase 2 : dashboard v1 branché sur les vraies données
 - [ ] Phase 3 : régional, carte choroplèthe et flux animés
 - [ ] Phase 4 : Ecowatt et Tempo
