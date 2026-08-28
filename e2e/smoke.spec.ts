@@ -9,6 +9,9 @@ test.describe('Parcours minimal Phase 0', () => {
 
   test('la maquette statique du command center est servie', async ({ page }) => {
     await page.goto('/design/maquette.html')
-    await expect(page.getByText(/maquette/i).first()).toBeVisible()
+    // Marqueurs discriminants : le fallback SPA de vite preview renvoie index.html
+    // sur les chemins inconnus, un simple mot "maquette" ne prouverait rien.
+    await expect(page).toHaveTitle(/maquette du command center/i)
+    await expect(page.getByText('Maquette statique · Phase 0')).toBeVisible()
   })
 })
