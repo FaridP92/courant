@@ -35,3 +35,6 @@ test-results
 .env
 .env.*
 !.env.example
+
+# OMC state
+.omc/
