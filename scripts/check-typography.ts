@@ -38,9 +38,13 @@ const IGNORED_DIRS = new Set([
   'playwright-report',
   'test-results',
   '.vercel',
+  '.omc',
 ])
 
 const IGNORED_FILES = new Set(['pnpm-lock.yaml'])
+
+/* Fichiers texte sans extension qui doivent quand même être contrôlés */
+const CHECKED_BASENAMES = new Set(['LICENSE'])
 
 export interface DashHit {
   line: number
@@ -67,6 +71,7 @@ export function findForbiddenDashes(text: string): DashHit[] {
 export function isCheckedFile(filePath: string): boolean {
   const base = filePath.split('/').at(-1) ?? filePath
   if (IGNORED_FILES.has(base)) return false
+  if (CHECKED_BASENAMES.has(base)) return true
   return CHECKED_EXTENSIONS.has(extname(base).toLowerCase())
 }
 

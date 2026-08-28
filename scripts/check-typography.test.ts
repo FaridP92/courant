@@ -50,6 +50,11 @@ describe('isCheckedFile', () => {
     }
   })
 
+  it('checks extensionless text files like LICENSE', () => {
+    expect(isCheckedFile('LICENSE')).toBe(true)
+    expect(isCheckedFile('some/dir/LICENSE')).toBe(true)
+  })
+
   it('ignores lockfiles, binaries and images', () => {
     for (const f of ['pnpm-lock.yaml', 'logo.png', 'font.woff2', 'archive.zip']) {
       expect(isCheckedFile(f), f).toBe(false)
