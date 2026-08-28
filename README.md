@@ -39,7 +39,8 @@ Décisions structurantes : voir [docs/adr](docs/adr).
 ## Avancement par phases
 
 - [x] Phase 0 : fondations (CI, tokens design, maquette statique, ADRs, déploiement)
-- [ ] Phase 1 : données nationales (schéma et marts livrés, backfill 2012 en cours)
+- [x] Phase 1 : données nationales (514 020 mesures 2012-2026 en base, ingestion horaire
+      n8n active, marts et records historiques calculés)
 - [ ] Phase 2 : dashboard v1 branché sur les vraies données
 - [ ] Phase 3 : régional, carte choroplèthe et flux animés
 - [ ] Phase 4 : Ecowatt et Tempo
