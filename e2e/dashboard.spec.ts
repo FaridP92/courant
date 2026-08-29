@@ -70,6 +70,41 @@ const metros = ['Métropole de Lyon', 'Métropole du Grand Paris'].flatMap((name
   })),
 )
 
+// Les signaux vivent au jour civil Paris : les fixtures suivent la date réelle du test
+// (le reste des fixtures vit sur une journée fictive de janvier, sans interaction).
+const parisDay = (offset: number) => {
+  const d = new Date(Date.now() + offset * 24 * 3600 * 1000)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+const ecowattHours = (hvalue: number) => Array.from({ length: 24 }, (_, pas) => ({ pas, hvalue }))
+const ecowatt = [
+  { day: parisDay(0), dvalue: 1, hours: ecowattHours(1) },
+  {
+    day: parisDay(1),
+    dvalue: 2,
+    hours: ecowattHours(1).map((h) => (h.pas === 18 || h.pas === 19 ? { ...h, hvalue: 2 } : h)),
+  },
+  { day: parisDay(2), dvalue: 1, hours: ecowattHours(1) },
+  { day: parisDay(3), dvalue: 1, hours: ecowattHours(0) },
+].map((d) => ({ ...d, message: 'x', generated_at: new Date(BASE_TS).toISOString() }))
+
+const tempo = {
+  today: parisDay(0),
+  season_start: '2025-09-01',
+  today_color: 'BLUE',
+  today_updated_at: new Date(BASE_TS).toISOString(),
+  tomorrow_color: 'RED',
+  tomorrow_updated_at: new Date(BASE_TS).toISOString(),
+  red_days_used: 3,
+  white_days_used: 11,
+  blue_days_used: 120,
+}
+
 async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_national_latest**', (route) => route.fulfill({ json: [latest] }))
   await page.route('**/rest/v1/v_national_24h**', (route) => route.fulfill({ json: points }))
@@ -77,6 +112,8 @@ async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_national_30d**', (route) => route.fulfill({ json: points }))
   await page.route('**/rest/v1/v_regional_latest**', (route) => route.fulfill({ json: regions }))
   await page.route('**/rest/v1/v_metropoles_6h**', (route) => route.fulfill({ json: metros }))
+  await page.route('**/rest/v1/v_ecowatt**', (route) => route.fulfill({ json: ecowatt }))
+  await page.route('**/rest/v1/v_tempo**', (route) => route.fulfill({ json: [tempo] }))
 }
 
 test.describe('Dashboard avec données mockées', () => {
@@ -140,6 +177,34 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(metroTitles).toHaveCount(2)
     await expect(metroTitles.first()).toHaveAttribute('title', 'Métropole du Grand Paris')
     await expect(metroTitles.nth(1)).toHaveAttribute('title', 'Métropole de Lyon')
+  })
+
+  test('les signaux Ecowatt et Tempo parlent les couleurs officielles, dérivées des données', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const signals = page.locator('article[aria-label="Signaux Ecowatt et Tempo"]')
+    await expect(signals).toBeVisible()
+    // Ecowatt : demain tendu 18-20 h, mot et phrase dérivés des heures mockées
+    await expect(signals.getByText('Tendu', { exact: true })).toBeVisible()
+    await expect(
+      signals.getByText(/Demain : système électrique tendu entre 18 h et 20 h/),
+    ).toBeVisible()
+    // Tempo : aujourd'hui bleu, demain rouge annoncé avec son implication tarifaire
+    await expect(signals.getByText("Aujourd'hui")).toBeVisible()
+    await expect(signals.getByText('Bleu', { exact: true })).toBeVisible()
+    await expect(signals.getByText('Rouge', { exact: true })).toBeVisible()
+    await expect(signals.getByText(/Demain jour rouge : électricité plus chère/)).toBeVisible()
+    await expect(signals.getByText(/3 rouges · 11 blancs · 120 bleus/)).toBeVisible()
+
+    // clic sur le jour tendu : le détail heure par heure se déplie avec son résumé
+    const tenseTile = signals.getByRole('button', { name: /Tendu/ })
+    await expect(tenseTile).toHaveAttribute('aria-expanded', 'false')
+    await tenseTile.click()
+    await expect(tenseTile).toHaveAttribute('aria-expanded', 'true')
+    await expect(signals.getByText(/: tendu entre 18 h et 20 h$/)).toBeVisible()
   })
 })
 

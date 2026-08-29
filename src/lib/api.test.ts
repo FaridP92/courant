@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchMetropoles6h, fetchNationalLatest, fetchNationalRange } from './api.ts'
+import { fetchEcowatt, fetchMetropoles6h, fetchNationalLatest, fetchNationalRange } from './api.ts'
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './config.ts'
 
 const latestRow = {
@@ -64,6 +64,16 @@ describe('fetchNationalRange', () => {
     expect(points).toHaveLength(1)
     const [url] = stub.mock.calls[0] as [string]
     expect(url).toBe(`${SUPABASE_URL}/rest/v1/v_national_24h?select=*&order=ts.asc&limit=200`)
+  })
+})
+
+describe('fetchEcowatt', () => {
+  it('écarte les jours au dvalue hors contrat plutôt que de laisser passer une tuile vide', async () => {
+    const valid = { day: '2026-08-29', dvalue: 2, message: 'x', generated_at: 'g', hours: [] }
+    stubFetch([{ ...valid, day: '2026-08-28', dvalue: 7 }, valid])
+    const days = await fetchEcowatt()
+    expect(days).toHaveLength(1)
+    expect(days[0]?.dvalue).toBe(2)
   })
 })
 

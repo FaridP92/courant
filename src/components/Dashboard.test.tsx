@@ -67,7 +67,10 @@ function stubApi(handler: (url: string) => unknown) {
         status: 200,
         json: () =>
           Promise.resolve(
-            url.includes('v_regional_latest') || url.includes('v_metropoles_6h')
+            url.includes('v_regional_latest') ||
+              url.includes('v_metropoles_6h') ||
+              url.includes('v_ecowatt') ||
+              url.includes('v_tempo')
               ? []
               : handler(url),
           ),
@@ -99,6 +102,16 @@ describe('Dashboard branché sur les vues publiques', () => {
     renderDashboard()
 
     expect(await screen.findByText(/métropoles indisponible/)).toBeInTheDocument()
+  })
+
+  it('les signaux Ecowatt et Tempo indisponibles restent des rubriques visibles et honnêtes', async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('Signal Ecowatt indisponible pour le moment.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Calendrier Tempo indisponible pour le moment.')).toBeInTheDocument()
   })
 
   it('la dernière filière visible ne peut pas être masquée et le dit', async () => {

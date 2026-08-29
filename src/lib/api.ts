@@ -72,6 +72,39 @@ export interface MetropolePoint {
   consommation: number | null
 }
 
+/** Un pas horaire du signal Ecowatt. hvalue : 0 vert + production décarbonée
+ * (nouveauté v5), 1 vert, 2 orange, 3 rouge. */
+export interface EcowattHour {
+  pas: number
+  hvalue: number
+}
+
+/** Un jour du signal Ecowatt (v_ecowatt, fenêtre J..J+3). dvalue : 1 vert, 2 orange, 3 rouge.
+ * hours peut être partiel sur le jour courant (contrat RTE) et null si aucune heure publiée. */
+export interface EcowattDay {
+  day: string
+  dvalue: 1 | 2 | 3
+  message: string
+  generated_at: string
+  hours: EcowattHour[] | null
+}
+
+export type TempoColor = 'BLUE' | 'WHITE' | 'RED'
+
+/** L'instantané Tempo (v_tempo, une ligne) : couleurs du jour et de demain
+ * (null tant que RTE n'a pas publié) et compteurs de la saison en cours. */
+export interface TempoSnapshot {
+  today: string
+  season_start: string
+  today_color: TempoColor | null
+  today_updated_at: string | null
+  tomorrow_color: TempoColor | null
+  tomorrow_updated_at: string | null
+  red_days_used: number
+  white_days_used: number
+  blue_days_used: number
+}
+
 /** Plages du sélecteur de période : 24 h au quart d'heure, 7 j et 30 j à l'heure. */
 export type NationalRange = '24h' | '7d' | '30d'
 
@@ -96,4 +129,15 @@ export async function fetchRegionalLatest(): Promise<RegionalLatest[]> {
 
 export async function fetchMetropoles6h(): Promise<MetropolePoint[]> {
   return fetchRows<MetropolePoint>('v_metropoles_6h?select=*&order=ts.asc&limit=1000')
+}
+
+export async function fetchEcowatt(): Promise<EcowattDay[]> {
+  const rows = await fetchRows<EcowattDay>('v_ecowatt?select=*&order=day.asc&limit=8')
+  // garde de contrat : un dvalue hors 1..3 ne doit jamais produire une tuile vide
+  return rows.filter((r) => r.dvalue >= 1 && r.dvalue <= 3)
+}
+
+export async function fetchTempo(): Promise<TempoSnapshot | null> {
+  const rows = await fetchRows<TempoSnapshot>('v_tempo?select=*')
+  return rows[0] ?? null
 }

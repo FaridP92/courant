@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import {
+  fetchEcowatt,
   fetchMetropoles6h,
   fetchNationalLatest,
   fetchNationalRange,
   fetchRegionalLatest,
+  fetchTempo,
   type NationalRange,
 } from '../lib/api.ts'
 import { REFRESH_INTERVAL_MS } from '../lib/config.ts'
@@ -38,6 +40,23 @@ export function useMetropolesData() {
   return useQuery({
     queryKey: ['metropoles-6h'],
     queryFn: fetchMetropoles6h,
+    refetchInterval: REFRESH_INTERVAL_MS,
+  })
+}
+
+/** Les signaux évoluent au fil des publications RTE : un refetch par minute suffit. */
+export function useEcowattData() {
+  return useQuery({
+    queryKey: ['ecowatt'],
+    queryFn: fetchEcowatt,
+    refetchInterval: REFRESH_INTERVAL_MS,
+  })
+}
+
+export function useTempoData() {
+  return useQuery({
+    queryKey: ['tempo'],
+    queryFn: fetchTempo,
     refetchInterval: REFRESH_INTERVAL_MS,
   })
 }

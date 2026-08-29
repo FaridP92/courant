@@ -11,11 +11,14 @@ import {
 } from '../lib/format.ts'
 import { accent, forecastDayBefore, forecastToday, FUELS, ink } from '../lib/palette.ts'
 import {
+  useEcowattData,
   useMetropolesData,
   useNationalLatest,
   useNationalSeries,
   useRegionalData,
+  useTempoData,
 } from '../hooks/useNationalData.ts'
+import { parisDayIso } from '../lib/signals.ts'
 import {
   buildHeroChartOption,
   buildMixChartOption,
@@ -27,6 +30,7 @@ import { ExportButton } from './ExportButton.tsx'
 import { KpiCard } from './KpiCard.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
+import { SignalsSection } from './SignalsSection.tsx'
 import { RangeSelector } from './RangeSelector.tsx'
 
 const TIME_COLUMN_GROUP = 'time-column'
@@ -347,6 +351,8 @@ export function Dashboard() {
   const rangeQuery = useNationalSeries(range)
   const regionalQuery = useRegionalData()
   const metropolesQuery = useMetropolesData()
+  const ecowattQuery = useEcowattData()
+  const tempoQuery = useTempoData()
 
   const latest = latestQuery.data ?? null
   const sparkPoints = spark24hQuery.data ?? []
@@ -382,11 +388,23 @@ export function Dashboard() {
                 range={range}
                 onRangeChange={setRange}
               />
-              <MapSection
-                regions={regionalQuery.data ?? []}
-                national={latest}
-                regionsStatus={regionalQuery.status}
-              />
+              <div className="flex flex-col gap-3.5">
+                <MapSection
+                  regions={regionalQuery.data ?? []}
+                  national={latest}
+                  regionsStatus={regionalQuery.status}
+                />
+                {/* priorité mobile du brief : les signaux avant la carte */}
+                <div className="order-first xl:order-none">
+                  <SignalsSection
+                    ecowatt={ecowattQuery.data ?? []}
+                    ecowattStatus={ecowattQuery.status}
+                    tempo={tempoQuery.data ?? null}
+                    tempoStatus={tempoQuery.status}
+                    today={parisDayIso()}
+                  />
+                </div>
+              </div>
             </div>
             <MetropolesSection
               points={metropolesQuery.data ?? []}
