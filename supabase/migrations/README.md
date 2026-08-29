@@ -13,5 +13,14 @@ reproductibilité. L'ordre des fichiers est l'ordre d'application.
 | 0005_log_run_consecutive_errors.sql | log_ingestion_run v2 : compte les échecs consécutifs (alerte email n8n)                      |
 | 0006_dedupe_dst_duplicates.sql      | Déduplication des doublons UTC du passage à l'heure d'été (bug réel attrapé par le test DST) |
 
+| 0007_anchor_24h_window.sql | Fenêtre 24 h ancrée sur le dernier point complet (20 h + 4 h de prévisions) |
+| 0008_unify_complete_predicate.sql | Prédicat de complétude unifié (conso + nucléaire + CO2) |
+| 0009_regional_metropoles_foundation.sql | Tables régionales et métropoles, RPC d'ingestion, référentiel régions |
+| 0010_regional_marts_v1.sql | Marts régionaux, v_regional_latest, v_metropoles_6h, refresh_marts |
+| 0011_national_range_views.sql | Vues de période 7 j / 30 j (moyenne horaire) pour le sélecteur |
+| 0012_latest_border_exchanges.sql | Échanges commerciaux par frontière exposés dans v_national_latest |
+| 0013_pg_cron_refresh_marts.sql | Rafraîchissement horaire des marts via pg_cron (minute 25) |
+| 0014_watermark_realised_only.sql | Watermarks limités au réalisé : les prévisions J+1 ne gèlent plus le delta |
+
 Conventions : colonnes de mesures aux noms exacts des champs ODRÉ (contrat de source,
 introspection du 2026-08-28, voir ADR-0003) ; identifiants structurels en anglais.
