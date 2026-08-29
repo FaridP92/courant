@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NationalLatest, NationalPoint } from '../lib/api.ts'
 import { Dashboard } from './Dashboard.tsx'
@@ -10,6 +10,12 @@ vi.mock('./charts/EChart.tsx', () => ({
   EChart: ({ ariaLabel }: { ariaLabel: string }) => (
     <div role="img" aria-label={ariaLabel} data-testid="echart" />
   ),
+  registerGeoMap: () => undefined,
+}))
+
+// La carte a sa propre plomberie (GeoJSON, registerMap) : testée à part
+vi.mock('./MapSection.tsx', () => ({
+  MapSection: () => <div data-testid="map-section" />,
 }))
 
 const latest: NationalLatest = {
@@ -29,6 +35,11 @@ const latest: NationalLatest = {
   bioenergies: 1100,
   ech_physiques: -1900,
   taux_co2: 32,
+  ech_comm_angleterre: -1000,
+  ech_comm_espagne: 500,
+  ech_comm_italie: -900,
+  ech_comm_suisse: -300,
+  ech_comm_allemagne_belgique: -200,
   updated_at: '2026-01-15T18:05:00+00:00',
 }
 
@@ -51,7 +62,16 @@ function stubApi(handler: (url: string) => unknown) {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) =>
-      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(handler(url)) }),
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            url.includes('v_regional_latest') || url.includes('v_metropoles_6h')
+              ? []
+              : handler(url),
+          ),
+      }),
     ),
   )
 }
@@ -72,6 +92,41 @@ describe('Dashboard branché sur les vues publiques', () => {
     expect(screen.getByText('la France exporte')).toBeInTheDocument()
     expect(screen.getByText('+4,1 %')).toBeInTheDocument()
     expect(screen.getAllByText(/données du jeudi 15 janvier, 19:00/).length).toBeGreaterThan(0)
+  })
+
+  it('dit honnêtement quand les métropoles ne remontent rien, sans faire disparaître la rubrique', async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(await screen.findByText(/métropoles indisponible/)).toBeInTheDocument()
+  })
+
+  it('la dernière filière visible ne peut pas être masquée et le dit', async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    const nuclear = await screen.findByRole('button', { name: /^Nucléaire/ })
+    for (const label of [
+      /^Hydraulique/,
+      /^Éolien/,
+      /^Solaire/,
+      /^Gaz/,
+      /^Fioul/,
+      /^Charbon/,
+      /^Bioénergies/,
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name: label }))
+    }
+    expect(nuclear).toHaveAttribute('aria-disabled', 'true')
+    expect(nuclear).toHaveAttribute('title', 'Au moins une filière doit rester affichée')
+    // le clic sur un bouton neutralisé ne change rien
+    fireEvent.click(nuclear)
+    expect(nuclear).toHaveAttribute('aria-pressed', 'true')
+    // les filières masquées restent réaffichables
+    expect(screen.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
 
   it('garde la marque et la légende des huit filières', async () => {

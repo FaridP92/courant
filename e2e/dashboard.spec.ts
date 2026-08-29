@@ -28,11 +28,55 @@ function fixturePoint(index: number) {
 }
 
 const points = Array.from({ length: 96 }, (_, i) => fixturePoint(i))
-const latest = { ...fixturePoint(95), updated_at: new Date(BASE_TS).toISOString() }
+const latest = {
+  ...fixturePoint(95),
+  ech_comm_angleterre: -1000,
+  ech_comm_espagne: 600,
+  ech_comm_italie: -800,
+  ech_comm_suisse: -300,
+  ech_comm_allemagne_belgique: -400,
+  updated_at: new Date(BASE_TS).toISOString(),
+}
+
+const regionRow = (code: string, name: string, consommation: number) => ({
+  region_code: code,
+  region_name: name,
+  ts: latest.ts,
+  maturity: 'R',
+  consommation,
+  thermique: 100,
+  nucleaire: 3000,
+  eolien: 400,
+  solaire: 100,
+  hydraulique: 300,
+  pompage: -50,
+  bioenergies: 60,
+  ech_physiques: -500,
+})
+const regions = [
+  regionRow('11', 'Île-de-France', 8000),
+  regionRow('84', 'Auvergne-Rhône-Alpes', 6000),
+  regionRow('53', 'Bretagne', 2500),
+]
+
+// Lyon arrive en premier dans la réponse mais consomme moins : l'ordre affiché doit venir
+// du tri par consommation, pas de l'ordre de réception
+const metros = ['Métropole de Lyon', 'Métropole du Grand Paris'].flatMap((name, m) =>
+  Array.from({ length: 24 }, (_, i) => ({
+    epci_code: `epci-${String(m)}`,
+    name,
+    ts: new Date(BASE_TS - (23 - i) * 15 * 60 * 1000).toISOString(),
+    consommation: 2000 + m * 1000 + i * 10,
+  })),
+)
 
 async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_national_latest**', (route) => route.fulfill({ json: [latest] }))
   await page.route('**/rest/v1/v_national_24h**', (route) => route.fulfill({ json: points }))
+  await page.route('**/rest/v1/v_national_7d**', (route) => route.fulfill({ json: points }))
+  await page.route('**/rest/v1/v_national_30d**', (route) => route.fulfill({ json: points }))
+  await page.route('**/rest/v1/v_regional_latest**', (route) => route.fulfill({ json: regions }))
+  await page.route('**/rest/v1/v_metropoles_6h**', (route) => route.fulfill({ json: metros }))
 }
 
 test.describe('Dashboard avec données mockées', () => {
@@ -48,8 +92,11 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(page.getByText('la France exporte')).toBeVisible()
     await expect(page.getByText(/vs prévision J-1/)).toBeVisible()
     await expect(page.getByText(/données du jeudi 15 janvier/).first()).toBeVisible()
-    // ECharts a réellement monté ses deux canvas (héro + mix)
-    await expect(page.locator('canvas')).toHaveCount(2)
+    // ECharts a réellement monté ses canvas (héro, mix, carte ; ECharts peut en créer
+    // plusieurs par graphe, on vérifie donc un plancher)
+    await expect
+      .poll(async () => page.locator('canvas').count(), { timeout: 10000 })
+      .toBeGreaterThanOrEqual(3)
     await expect(page.getByText(/Bioénergies/)).toBeVisible()
     // un mapping cassé produirait des NaN : garde générique
     await expect(page.getByText(/NaN/)).toHaveCount(0)
@@ -59,6 +106,40 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
     await expect(page.getByText('LIVE')).toBeVisible()
+  })
+
+  test("l'interactivité répond : période, filière masquable, exports, métropoles", async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    // sélecteur de période
+    const btn7d = page.getByRole('button', { name: '7 j' })
+    await expect(btn7d).toHaveAttribute('aria-pressed', 'false')
+    await btn7d.click()
+    await expect(btn7d).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText(/7 jours en moyenne horaire/)).toBeVisible()
+
+    // légende du mix : masquer une filière (état initial vérifié, sinon un bouton
+    // figé sur false passerait le test)
+    const fuelToggle = page.getByRole('button', { name: /^Hydraulique/ })
+    await expect(fuelToggle).toHaveAttribute('aria-pressed', 'true')
+    await fuelToggle.click()
+    await expect(fuelToggle).toHaveAttribute('aria-pressed', 'false')
+
+    // exports CSV présents
+    await expect(page.getByRole('button', { name: /Exporter courant-national/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Exporter courant-regions/ })).toBeVisible()
+
+    // métropoles réellement triées par consommation : Grand Paris devant Lyon
+    // alors que Lyon arrive en premier dans la réponse mockée
+    const metroTitles = page.locator(
+      'section[aria-label^="Consommation des principales métropoles"] p[title]',
+    )
+    await expect(metroTitles).toHaveCount(2)
+    await expect(metroTitles.first()).toHaveAttribute('title', 'Métropole du Grand Paris')
+    await expect(metroTitles.nth(1)).toHaveAttribute('title', 'Métropole de Lyon')
   })
 })
 

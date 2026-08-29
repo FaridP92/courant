@@ -1,4 +1,5 @@
-import type { NationalLatest, NationalPoint } from '../lib/api.ts'
+import { useMemo, useState } from 'react'
+import type { NationalLatest, NationalPoint, NationalRange } from '../lib/api.ts'
 import { exchangeBalanceMw, nuclearShare, renewablesShare } from '../lib/energy.ts'
 import {
   formatFreshness,
@@ -9,28 +10,34 @@ import {
   formatWholePercent,
 } from '../lib/format.ts'
 import { accent, forecastDayBefore, forecastToday, FUELS, ink } from '../lib/palette.ts'
-import { useNationalData } from '../hooks/useNationalData.ts'
-import { lazy, Suspense } from 'react'
+import {
+  useMetropolesData,
+  useNationalLatest,
+  useNationalSeries,
+  useRegionalData,
+} from '../hooks/useNationalData.ts'
 import {
   buildHeroChartOption,
   buildMixChartOption,
   heroScaleBoundsGw,
 } from './charts/chartOptions.ts'
+import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { DashboardHeader } from './DashboardHeader.tsx'
+import { ExportButton } from './ExportButton.tsx'
 import { KpiCard } from './KpiCard.tsx'
-
-// ECharts pèse lourd : chargé en chunk séparé après le premier rendu (ADR-0001)
-const EChart = lazy(() => import('./charts/EChart.tsx').then((m) => ({ default: m.EChart })))
-
-function ChartSlot({ heightClass, children }: { heightClass: string; children: React.ReactNode }) {
-  return (
-    <Suspense fallback={<div className={heightClass} aria-hidden="true" />}>{children}</Suspense>
-  )
-}
+import { MapSection } from './MapSection.tsx'
+import { MetropolesSection } from './MetropolesSection.tsx'
+import { RangeSelector } from './RangeSelector.tsx'
 
 const TIME_COLUMN_GROUP = 'time-column'
 /** 6 dernières heures au quart d'heure : la fenêtre des sparklines KPI. */
 const SPARK_POINTS = 24
+
+const RANGE_HINTS: Record<NationalRange, string> = {
+  '24h': "24 h au quart d'heure",
+  '7d': '7 jours en moyenne horaire',
+  '30d': '30 jours en moyenne horaire',
+}
 
 /** Tronque la série aux points observés : la queue de prévisions pures n'entre jamais
  * dans les sparklines (règle : aucune donnée inventée, aucune pente fantôme). */
@@ -148,21 +155,62 @@ function ForecastSwatch({ color, dash }: { color: string; dash: string }) {
 function TimeColumn({
   latest,
   points,
+  range,
+  onRangeChange,
 }: {
   latest: NationalLatest
   points: readonly NationalPoint[]
+  range: NationalRange
+  onRangeChange: (range: NationalRange) => void
 }) {
+  const [hiddenFuels, setHiddenFuels] = useState<ReadonlySet<string>>(new Set())
   const scale = heroScaleBoundsGw(points)
+  // mémoïsées : un simple re-rendu React ne doit pas déclencher setOption
+  // (qui, même en fusion, coûte un layout ECharts)
+  const heroOption = useMemo(() => buildHeroChartOption(points), [points])
+  const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
+  const exportRows = points.map((p) => ({
+    ts: p.ts,
+    consommation_mw: p.consommation,
+    prevision_j1_mw: p.prevision_j1,
+    prevision_j_mw: p.prevision_j,
+    nucleaire_mw: p.nucleaire,
+    hydraulique_mw: p.hydraulique,
+    eolien_mw: p.eolien,
+    solaire_mw: p.solaire,
+    gaz_mw: p.gaz,
+    fioul_mw: p.fioul,
+    charbon_mw: p.charbon,
+    bioenergies_mw: p.bioenergies,
+    ech_physiques_mw: p.ech_physiques,
+    taux_co2_g_kwh: p.taux_co2,
+  }))
+
+  const toggleFuel = (key: string) => {
+    setHiddenFuels((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else if (next.size < FUELS.length - 1) next.add(key)
+      return next
+    })
+  }
+
   return (
-    <section aria-label="Consommation et mix de production sur 24 heures">
+    <section aria-label="Consommation et mix de production dans le temps">
       <article className="rounded-t-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)">
-        <h2 className="mb-2 font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-          Consommation nationale{' '}
-          <span className="font-normal tracking-normal normal-case">
-            réalisé vs prévisions RTE · 24 h
-            {scale !== null && ` · échelle ${String(scale.min)}-${String(scale.max)} GW`}
-          </span>
-        </h2>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
+            Consommation nationale{' '}
+            <span className="font-normal tracking-normal normal-case">
+              réalisé vs prévisions RTE · {RANGE_HINTS[range]}
+              {scale !== null && ` · échelle ${String(scale.min)}-${String(scale.max)} GW`}
+            </span>
+          </h2>
+          <div className="flex items-center gap-2">
+            <RangeSelector value={range} onChange={onRangeChange} />
+            <ExportButton rows={exportRows} filename={`courant-national-${range}.csv`} />
+          </div>
+        </div>
         <div className="mb-1 flex flex-wrap items-end gap-x-7 gap-y-2">
           <p className="font-display text-[72px] leading-[0.95] font-extrabold tracking-tight text-ink-100 [font-stretch:120%] [text-shadow:0_0_34px_rgba(46,230,255,0.18)]">
             {formatGigawatts(latest.consommation)}
@@ -174,9 +222,9 @@ function TimeColumn({
         </div>
         <ChartSlot heightClass="h-[240px] w-full">
           <EChart
-            option={buildHeroChartOption(points)}
+            option={heroOption}
             group={TIME_COLUMN_GROUP}
-            ariaLabel={`Courbe de consommation sur 24 heures, dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE de la veille et du jour.`}
+            ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.`}
             className="h-[240px] w-full"
           />
         </ChartSlot>
@@ -191,6 +239,7 @@ function TimeColumn({
           <span className="flex items-center gap-1.5">
             <ForecastSwatch color={forecastDayBefore} dash="6 3" /> Prévision J-1
           </span>
+          <span className="text-[10.5px] text-ink-40">molette ou pincement : zoom temporel</span>
         </p>
       </article>
 
@@ -203,25 +252,49 @@ function TimeColumn({
         </h2>
         <ChartSlot heightClass="h-[210px] w-full">
           <EChart
-            option={buildMixChartOption(points)}
+            option={mixOption}
             group={TIME_COLUMN_GROUP}
-            ariaLabel="Aires empilées de la production par filière sur 24 heures, du nucléaire en base aux filières d'appoint."
+            ariaLabel="Aires empilées de la production par filière, du nucléaire en base aux filières d'appoint. La légende permet de masquer des filières."
             className="h-[210px] w-full"
           />
         </ChartSlot>
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-data text-[11.5px] text-ink-60">
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 font-data text-[11.5px] text-ink-60">
           {FUELS.map((fuel) => {
             const value = latest[fuel.key]
+            const hidden = hiddenFuels.has(fuel.key)
+            // au moins une filière reste affichée : le dernier bouton actif le dit
+            // au lieu d'ignorer le clic en silence
+            const isLastVisible = !hidden && hiddenFuels.size >= FUELS.length - 1
             return (
-              <span key={fuel.key} className="flex items-center gap-1.5">
+              <button
+                key={fuel.key}
+                type="button"
+                aria-pressed={!hidden}
+                aria-disabled={isLastVisible}
+                title={
+                  isLastVisible
+                    ? 'Au moins une filière doit rester affichée'
+                    : hidden
+                      ? `Réafficher ${fuel.label}`
+                      : `Masquer ${fuel.label}`
+                }
+                onClick={() => {
+                  if (isLastVisible) return
+                  toggleFuel(fuel.key)
+                }}
+                className={`flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 transition-colors hover:border-line-strong focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${hidden ? 'opacity-40' : ''}`}
+              >
                 <i className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: fuel.color }} />
-                {fuel.label}{' '}
+                <span className={hidden ? 'line-through' : ''}>{fuel.label}</span>{' '}
                 <b className="font-medium text-ink-100">
                   {value === null ? 'n.d.' : formatGigawatts(value)}
                 </b>
-              </span>
+              </button>
             )
           })}
+          <span className="text-[10.5px] text-ink-40">
+            clic : masquer ou réafficher une filière
+          </span>
         </p>
       </article>
     </section>
@@ -268,10 +341,17 @@ function UnavailableState({ onRetry }: { onRetry: () => void }) {
 }
 
 export function Dashboard() {
-  const { latestQuery, seriesQuery } = useNationalData()
+  const [range, setRange] = useState<NationalRange>('24h')
+  const latestQuery = useNationalLatest()
+  const spark24hQuery = useNationalSeries('24h')
+  const rangeQuery = useNationalSeries(range)
+  const regionalQuery = useRegionalData()
+  const metropolesQuery = useMetropolesData()
+
   const latest = latestQuery.data ?? null
-  const points = seriesQuery.data ?? []
-  const refreshFailing = latestQuery.isError || seriesQuery.isError
+  const sparkPoints = spark24hQuery.data ?? []
+  const rangePoints = rangeQuery.data ?? []
+  const refreshFailing = latestQuery.isError || rangeQuery.isError
 
   return (
     <div className="flex min-h-screen flex-col text-ink-100">
@@ -283,19 +363,35 @@ export function Dashboard() {
             {formatFreshness(latest.ts).replace('données de', 'données réelles, de')}.
           </p>
         )}
-        {latest === null && (latestQuery.isPending || seriesQuery.isPending) && <LoadingState />}
+        {latest === null && (latestQuery.isPending || rangeQuery.isPending) && <LoadingState />}
         {latest === null && !latestQuery.isPending && (
           <UnavailableState
             onRetry={() => {
               void latestQuery.refetch()
-              void seriesQuery.refetch()
+              void rangeQuery.refetch()
             }}
           />
         )}
         {latest !== null && (
           <>
-            <KpiRow latest={latest} points={points} />
-            <TimeColumn latest={latest} points={points} />
+            <KpiRow latest={latest} points={sparkPoints} />
+            <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <TimeColumn
+                latest={latest}
+                points={rangePoints}
+                range={range}
+                onRangeChange={setRange}
+              />
+              <MapSection
+                regions={regionalQuery.data ?? []}
+                national={latest}
+                regionsStatus={regionalQuery.status}
+              />
+            </div>
+            <MetropolesSection
+              points={metropolesQuery.data ?? []}
+              status={metropolesQuery.status}
+            />
           </>
         )}
       </main>
