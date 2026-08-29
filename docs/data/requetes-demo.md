@@ -72,4 +72,41 @@ order by id desc limit 10;
 ```
 
 Alimentée par WF1 (horaire) et WF6 (backfill) via la RPC `log_ingestion_run`, qui renvoie
-aussi le nombre d'échecs consécutifs pour déclencher l'alerte email.
+aussi le nombre d'échecs consécutifs pour déclencher l'alerte email. Depuis la Phase 3,
+WF2 (régional) et WF3 (métropoles) journalisent au même endroit.
+
+## 7. Le podium régional de l'instant
+
+```sql
+select region_name, consommation, -ech_physiques as solde_export_mw
+from public.v_regional_latest
+order by consommation desc
+limit 5;
+```
+
+Les cinq régions les plus consommatrices au dernier quart d'heure publié, avec leur solde
+d'échanges (positif = la région exporte vers ses voisines).
+
+## 8. Une journée d'une région, filière par filière
+
+```sql
+select ts, consommation, nucleaire, eolien, solaire, hydraulique, thermique
+from ingest.eco2mix_regional
+where region_code = '84' and ts >= now() - interval '24 hours'
+order by ts;
+```
+
+Auvergne-Rhône-Alpes sur 24 h : le socle nucléaire et hydraulique y écrase le reste.
+
+## 9. Les métropoles au fil de la soirée
+
+```sql
+select name, ts, consommation
+from public.v_metropoles_6h
+where name like '%Lyon%'
+order by ts desc
+limit 8;
+```
+
+La fenêtre glissante de 7 jours (purge automatique à l'ingestion) garde la table minuscule ;
+la vue publique n'expose que les 6 dernières heures.
