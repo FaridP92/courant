@@ -21,6 +21,7 @@ reproductibilité. L'ordre des fichiers est l'ordre d'application.
 | 0012_latest_border_exchanges.sql | Échanges commerciaux par frontière exposés dans v_national_latest |
 | 0013_pg_cron_refresh_marts.sql | Rafraîchissement horaire des marts via pg_cron (minute 25) |
 | 0014_watermark_realised_only.sql | Watermarks limités au réalisé : les prévisions J+1 ne gèlent plus le delta |
+| 0015_ecowatt_tempo_foundation.sql | Signaux Ecowatt (jours + heures) et calendrier Tempo, RPC et vues v_ecowatt / v_tempo |
 
 Conventions : colonnes de mesures aux noms exacts des champs ODRÉ (contrat de source,
 introspection du 2026-08-28, voir ADR-0003) ; identifiants structurels en anglais.
