@@ -110,3 +110,23 @@ limit 8;
 
 La fenêtre glissante de 7 jours (purge automatique à l'ingestion) garde la table minuscule ;
 la vue publique n'expose que les 6 dernières heures.
+
+## 10. Douze saisons de Tempo d'un coup d'œil
+
+```sql
+select
+  case when extract(month from day) >= 9
+    then extract(year from day)::int
+    else extract(year from day)::int - 1 end as saison,
+  count(*) filter (where color = 'RED') as rouges,
+  count(*) filter (where color = 'WHITE') as blancs,
+  count(*) filter (where color = 'BLUE') as bleus
+from ingest.tempo_days
+group by 1
+order by 1;
+```
+
+L'historique remonte à septembre 2014 (backfill WF7). Toutes les saisons font
+22 rouges et 43 blancs, sauf 2019-2020 (18 rouges, 47 blancs : l'hiver du premier
+confinement). Seul trou de la source : le 17 août 2025, absent du calendrier
+officiel RTE.

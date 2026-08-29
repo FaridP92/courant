@@ -11,7 +11,7 @@ ont été faits en chemin, dont deux déviations par rapport au pattern posé en
 ## Décisions
 
 1. **Thermique régional agrégé, tco/tch non stockés.** Le dataset régional détaille
-   thermique par combustible et fournit des taux de couverture/charge (tco_*, tch_*).
+   thermique par combustible et fournit des taux de couverture/charge (`tco_*`, `tch_*`).
    Nous stockons un champ `thermique` agrégé et ignorons les taux : aucun écran n'en a
    besoin, et le free tier Supabase impose de la sobriété (24 mois régionaux = 453 696
    lignes). Si un écran futur les réclame, ils se recalculent depuis la source par
