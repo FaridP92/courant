@@ -8,7 +8,10 @@ html {
 
 body {
   margin: 0;
-  background-color: var(--color-abyss);
+  /* halo signature de la maquette au-dessus du fond pétrole */
+  background:
+    radial-gradient(1100px 500px at 75% -10%, rgba(46, 230, 255, 0.05), transparent 60%),
+    var(--color-abyss);
   color: var(--color-ink-100);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -23,4 +26,34 @@ body {
 ::selection {
   background-color: var(--color-accent);
   color: var(--color-abyss);
+}
+
+/* Pastille LIVE : pulsation discrète, coupée si l'utilisateur préfère moins de mouvement */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  animation: live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 230, 255, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(46, 230, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 230, 255, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+  .animate-pulse {
+    animation: none;
+  }
 }
