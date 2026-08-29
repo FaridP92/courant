@@ -108,7 +108,7 @@ export function heroScaleBoundsGw(points: readonly NationalPoint[]): {
 const toPairs = (points: readonly NationalPoint[], field: keyof NationalPoint): TimeValue[] =>
   points.map((p) => [Date.parse(p.ts), p[field] as number | null])
 
-function timeAxis(): object {
+export function timeAxis(): object {
   return {
     type: 'time',
     axisLine: { lineStyle: { color: surfaces.line } },
@@ -123,7 +123,7 @@ function timeAxis(): object {
   }
 }
 
-function gwAxis(extra: object = {}): object {
+export function gwAxis(extra: object = {}): object {
   return {
     type: 'value',
     axisLabel: {
@@ -139,7 +139,7 @@ function gwAxis(extra: object = {}): object {
   }
 }
 
-function gwTooltip(extra: object = {}): object {
+export function gwTooltip(extra: object = {}): object {
   return {
     trigger: 'axis',
     confine: true,
@@ -192,7 +192,7 @@ function cursorMarkLine(lastTs: string, label: string | null): CursorMarkLine {
 }
 
 /** Zoom interne : molette et pincement sur l'axe du temps, sans barre visible. */
-const insideZoom = (): object[] => [
+export const insideZoom = (): object[] => [
   {
     type: 'inside',
     xAxisIndex: 0,

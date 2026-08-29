@@ -64,6 +64,22 @@ export interface RegionalLatest {
   ech_physiques: number | null
 }
 
+/** Un point de série régionale (v_regional_24h/7d/30d ; thermique agrégé, ADR-0004). */
+export interface RegionalPoint {
+  region_code: string
+  region_name: string
+  ts: string
+  consommation: number | null
+  thermique: number | null
+  nucleaire: number | null
+  eolien: number | null
+  solaire: number | null
+  hydraulique: number | null
+  pompage: number | null
+  bioenergies: number | null
+  ech_physiques: number | null
+}
+
 /** Un point de consommation d'une métropole (fenêtre 6 h). */
 export interface MetropolePoint {
   epci_code: string
@@ -129,6 +145,33 @@ export async function fetchRegionalLatest(): Promise<RegionalLatest[]> {
 
 export async function fetchMetropoles6h(): Promise<MetropolePoint[]> {
   return fetchRows<MetropolePoint>('v_metropoles_6h?select=*&order=ts.asc&limit=1000')
+}
+
+const REGIONAL_RANGE_VIEWS: Record<NationalRange, string> = {
+  '24h': 'v_regional_24h',
+  '7d': 'v_regional_7d',
+  '30d': 'v_regional_30d',
+}
+
+/** Tri descendant puis remise à l'endroit : si le plafond PostgREST tronque,
+ * ce sont les points les plus anciens qui tombent, jamais les plus récents
+ * (toute la logique de fenêtre s'ancre sur le dernier point). */
+export async function fetchRegionalSeries(
+  regionCode: string,
+  range: NationalRange,
+): Promise<RegionalPoint[]> {
+  const rows = await fetchRows<RegionalPoint>(
+    `${REGIONAL_RANGE_VIEWS[range]}?select=*&region_code=eq.${encodeURIComponent(regionCode)}&order=ts.desc&limit=1000`,
+  )
+  return [...rows].reverse()
+}
+
+/** Les métropoles ne conservent que 7 jours (purge à l'ingestion) : une seule vue. */
+export async function fetchMetropoleSeries(epciCode: string): Promise<MetropolePoint[]> {
+  const rows = await fetchRows<MetropolePoint>(
+    `v_metropoles_7d?select=*&epci_code=eq.${encodeURIComponent(epciCode)}&order=ts.desc&limit=1000`,
+  )
+  return [...rows].reverse()
 }
 
 export async function fetchEcowatt(): Promise<EcowattDay[]> {

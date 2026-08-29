@@ -105,6 +105,30 @@ const tempo = {
   blue_days_used: 120,
 }
 
+const REGION_FIXTURE_NAMES: Record<string, string> = {
+  '11': 'Île-de-France',
+  '84': 'Auvergne-Rhône-Alpes',
+  '53': 'Bretagne',
+}
+
+const regionalSeriesFor = (code: string) =>
+  Array.from({ length: 24 }, (_, i) => ({
+    region_code: code,
+    region_name: REGION_FIXTURE_NAMES[code] ?? code,
+    ts: new Date(BASE_TS - (23 - i) * 30 * 60 * 1000).toISOString(),
+    consommation: 4800 + i * 20,
+    thermique: 200,
+    nucleaire: 3000,
+    eolien: 400,
+    solaire: 100,
+    hydraulique: 800,
+    pompage: -50,
+    bioenergies: 100,
+    ech_physiques: 600,
+  }))
+
+const regionCodeFromUrl = (url: string) => /region_code=eq\.([0-9]+)/.exec(url)?.[1] ?? '84'
+
 async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_national_latest**', (route) => route.fulfill({ json: [latest] }))
   await page.route('**/rest/v1/v_national_24h**', (route) => route.fulfill({ json: points }))
@@ -114,6 +138,19 @@ async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_metropoles_6h**', (route) => route.fulfill({ json: metros }))
   await page.route('**/rest/v1/v_ecowatt**', (route) => route.fulfill({ json: ecowatt }))
   await page.route('**/rest/v1/v_tempo**', (route) => route.fulfill({ json: [tempo] }))
+  await page.route('**/rest/v1/v_regional_24h**', (route) =>
+    route.fulfill({ json: regionalSeriesFor(regionCodeFromUrl(route.request().url())) }),
+  )
+  await page.route('**/rest/v1/v_regional_7d**', (route) =>
+    route.fulfill({ json: regionalSeriesFor(regionCodeFromUrl(route.request().url())) }),
+  )
+  await page.route('**/rest/v1/v_regional_30d**', (route) =>
+    route.fulfill({ json: regionalSeriesFor(regionCodeFromUrl(route.request().url())) }),
+  )
+  await page.route('**/rest/v1/v_metropoles_7d**', (route) => {
+    const epci = /epci_code=eq\.([^&]+)/.exec(route.request().url())?.[1]
+    return route.fulfill({ json: metros.filter((m) => m.epci_code === epci) })
+  })
 }
 
 test.describe('Dashboard avec données mockées', () => {
@@ -122,9 +159,19 @@ test.describe('Dashboard avec données mockées', () => {
     await page.goto('/')
 
     await expect(page.getByRole('heading', { level: 1, name: 'COURANT' })).toBeVisible()
-    // valeurs déterministes de la fixture : conso index 95 = 55013 MW
-    await expect(page.getByText('55,0')).toHaveCount(2) // carte KPI + gros chiffre héro
-    await expect(page.getByText(/^70\s?%$/)).toBeVisible() // part nucléaire : 42000 / 59900
+    // valeurs déterministes de la fixture : conso index 95 = 55013 MW (KPI + héro)
+    await expect(
+      page.locator('section[aria-label^="Indicateurs clés"]').getByText('55,0'),
+    ).toBeVisible()
+    await expect(
+      page
+        .locator('section[aria-label="Consommation et mix de production dans le temps"]')
+        .getByText('55,0'),
+    ).toBeVisible()
+    // part nucléaire 42000 / 59900 (le KPI ; l'Explorateur a sa propre jauge à 70 %)
+    await expect(
+      page.locator('section[aria-label^="Indicateurs clés"]').getByText(/^70\s?%$/),
+    ).toBeVisible()
     await expect(page.getByText('+1,9')).toBeVisible()
     await expect(page.getByText('la France exporte')).toBeVisible()
     await expect(page.getByText(/vs prévision J-1/)).toBeVisible()
@@ -151,8 +198,11 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
 
-    // sélecteur de période
-    const btn7d = page.getByRole('button', { name: '7 j' })
+    // sélecteur de période de la colonne du temps (l'Explorateur a le sien)
+    const timeColumn = page.locator(
+      'section[aria-label="Consommation et mix de production dans le temps"]',
+    )
+    const btn7d = timeColumn.getByRole('button', { name: '7 j' })
     await expect(btn7d).toHaveAttribute('aria-pressed', 'false')
     await btn7d.click()
     await expect(btn7d).toHaveAttribute('aria-pressed', 'true')
@@ -205,6 +255,30 @@ test.describe('Dashboard avec données mockées', () => {
     await tenseTile.click()
     await expect(tenseTile).toHaveAttribute('aria-expanded', 'true')
     await expect(signals.getByText(/: tendu entre 18 h et 20 h$/)).toBeVisible()
+  })
+
+  test("l'Explorateur filtre par territoire et se relie à la carte", async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const explorer = page.locator('#explorer')
+    // France par défaut : les trois jauges nationales
+    await expect(explorer.getByRole('img', { name: /^Renouvelables :/ })).toBeVisible()
+    await expect(explorer.getByRole('img', { name: /^Autonomie :/ })).toBeVisible()
+
+    // sélection d'une région : série, jauges et mix du territoire
+    await explorer.getByLabel('Territoire').selectOption('region:84')
+    await expect(explorer.getByText('Consommation · Auvergne-Rhône-Alpes')).toBeVisible()
+    await expect(explorer.getByText('Mix de production du territoire')).toBeVisible()
+    // autonomie régionale de la fixture v_regional_latest : 3960 / 6000 = 66 %
+    await expect(explorer.getByRole('img', { name: 'Autonomie : 66 %' })).toBeVisible()
+
+    // le pont carte vers Explorateur : sélection régionale au clavier puis « Creuser »
+    // (le bouton est sr-only tant qu'il n'a pas le focus : on passe par le clavier réel)
+    await page.getByRole('button', { name: 'Bretagne' }).focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('button', { name: /Creuser dans l'Explorateur/ }).click()
+    await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
   })
 })
 

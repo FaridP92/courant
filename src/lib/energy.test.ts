@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { exchangeBalanceMw, nuclearShare, productionTotalMw, renewablesShare } from './energy.ts'
+import {
+  exchangeBalanceMw,
+  nationalAutonomy,
+  nuclearShare,
+  productionTotalMw,
+  regionalAutonomy,
+  regionalProductionTotalMw,
+  regionalRenewableShare,
+  renewablesShare,
+} from './energy.ts'
 import type { NationalPoint } from './api.ts'
 
 const point: NationalPoint = {
@@ -55,5 +64,56 @@ describe('exchangeBalanceMw', () => {
 
   it('null si les échanges sont absents : jamais "+0,0 GW" inventé', () => {
     expect(exchangeBalanceMw({ ...point, ech_physiques: null })).toBeNull()
+  })
+})
+
+describe('sélecteurs régionaux', () => {
+  const region = {
+    consommation: 5000,
+    thermique: 200,
+    nucleaire: 3000,
+    eolien: 400,
+    solaire: 100,
+    hydraulique: 800,
+    bioenergies: 100,
+  }
+
+  it('regionalProductionTotalMw somme les six filières, null si une manque', () => {
+    expect(regionalProductionTotalMw(region)).toBe(4600)
+    expect(regionalProductionTotalMw({ ...region, thermique: null })).toBeNull()
+  })
+
+  it("regionalRenewableShare rapporte l'hydraulique, l'éolien, le solaire et les bioénergies au total", () => {
+    // (800 + 400 + 100 + 100) / 4600
+    expect(regionalRenewableShare(region)).toBeCloseTo(1400 / 4600)
+    expect(regionalRenewableShare({ ...region, eolien: null })).toBeNull()
+  })
+
+  it('regionalAutonomy rapporte la production à la consommation, null-honnête', () => {
+    expect(regionalAutonomy(region)).toBeCloseTo(4600 / 5000)
+    expect(regionalAutonomy({ ...region, consommation: null })).toBeNull()
+    expect(regionalAutonomy({ ...region, consommation: 0 })).toBeNull()
+  })
+
+  it('une région peut produire plus qu elle ne consomme : la fraction dépasse 1', () => {
+    expect(regionalAutonomy({ ...region, consommation: 2300 })).toBeCloseTo(2)
+  })
+})
+
+describe('nationalAutonomy', () => {
+  it('rapporte la production totale à la consommation, null si conso non positive', () => {
+    const point = {
+      consommation: 50000,
+      nucleaire: 30000,
+      hydraulique: 8000,
+      eolien: 6000,
+      solaire: 4000,
+      gaz: 1000,
+      fioul: 0,
+      charbon: 0,
+      bioenergies: 1000,
+    } as unknown as NationalPoint & { consommation: number }
+    expect(nationalAutonomy(point)).toBeCloseTo(1)
+    expect(nationalAutonomy({ ...point, consommation: 0 })).toBeNull()
   })
 })

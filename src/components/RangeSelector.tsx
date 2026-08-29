@@ -9,9 +9,11 @@ const RANGES: { value: NationalRange; label: string; title: string }[] = [
 interface RangeSelectorProps {
   value: NationalRange
   onChange: (range: NationalRange) => void
+  /** Périodes indisponibles pour le contexte courant, avec la raison en title. */
+  disabled?: Partial<Record<NationalRange, string>>
 }
 
-export function RangeSelector({ value, onChange }: RangeSelectorProps) {
+export function RangeSelector({ value, onChange, disabled = {} }: RangeSelectorProps) {
   return (
     <div
       role="group"
@@ -22,12 +24,13 @@ export function RangeSelector({ value, onChange }: RangeSelectorProps) {
         <button
           key={range.value}
           type="button"
-          title={range.title}
+          title={disabled[range.value] ?? range.title}
           aria-pressed={value === range.value}
+          disabled={disabled[range.value] !== undefined}
           onClick={() => {
             onChange(range.value)
           }}
-          className={`px-3 py-1 font-data text-xs transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+          className={`px-3 py-1 font-data text-xs transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 ${
             value === range.value
               ? 'bg-accent font-semibold text-abyss'
               : 'text-ink-60 hover:text-ink-100'

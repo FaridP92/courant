@@ -19,6 +19,8 @@ import {
   useTempoData,
 } from '../hooks/useNationalData.ts'
 import { parisDayIso } from '../lib/signals.ts'
+import { FRANCE, type Territory } from '../lib/territory.ts'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import {
   buildHeroChartOption,
   buildMixChartOption,
@@ -28,6 +30,7 @@ import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { DashboardHeader } from './DashboardHeader.tsx'
 import { ExportButton } from './ExportButton.tsx'
 import { KpiCard } from './KpiCard.tsx'
+import { ExplorerSection } from './ExplorerSection.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
 import { SignalsSection } from './SignalsSection.tsx'
@@ -353,6 +356,19 @@ export function Dashboard() {
   const metropolesQuery = useMetropolesData()
   const ecowattQuery = useEcowattData()
   const tempoQuery = useTempoData()
+  const [explorerTerritory, setExplorerTerritory] = useState<Territory>(FRANCE)
+  const reduceMotion = usePrefersReducedMotion()
+
+  const exploreRegion = (code: string, name: string) => {
+    setExplorerTerritory({ kind: 'region', code, name })
+    const explorer = document.getElementById('explorer')
+    if (explorer !== null) {
+      // le focus suit la navigation (clavier et lecteurs d'écran), le défilement
+      // respecte la préférence de mouvement réduit
+      explorer.focus({ preventScroll: true })
+      explorer.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    }
+  }
 
   const latest = latestQuery.data ?? null
   const sparkPoints = spark24hQuery.data ?? []
@@ -393,6 +409,7 @@ export function Dashboard() {
                   regions={regionalQuery.data ?? []}
                   national={latest}
                   regionsStatus={regionalQuery.status}
+                  onExploreRegion={exploreRegion}
                 />
                 {/* priorité mobile du brief : les signaux avant la carte */}
                 <div className="order-first xl:order-none">
@@ -409,6 +426,13 @@ export function Dashboard() {
             <MetropolesSection
               points={metropolesQuery.data ?? []}
               status={metropolesQuery.status}
+            />
+            <ExplorerSection
+              regions={regionalQuery.data ?? []}
+              metropoles={metropolesQuery.data ?? []}
+              national={latest}
+              territory={explorerTerritory}
+              onTerritoryChange={setExplorerTerritory}
             />
           </>
         )}

@@ -53,3 +53,63 @@ export function renewablesShare(point: NationalPoint): number | null {
 export function exchangeBalanceMw(point: Pick<NationalPoint, 'ech_physiques'>): number | null {
   return point.ech_physiques === null ? null : -point.ech_physiques
 }
+
+/** Champs de production d'un point régional (thermique agrégé, cf. ADR-0004). */
+interface RegionalGeneration {
+  consommation?: number | null
+  thermique: number | null
+  nucleaire: number | null
+  eolien: number | null
+  solaire: number | null
+  hydraulique: number | null
+  bioenergies: number | null
+}
+
+const REGIONAL_GENERATION_FIELDS = [
+  'nucleaire',
+  'thermique',
+  'hydraulique',
+  'eolien',
+  'solaire',
+  'bioenergies',
+] as const satisfies readonly (keyof RegionalGeneration)[]
+
+export function regionalProductionTotalMw(point: RegionalGeneration): number | null {
+  let total = 0
+  for (const field of REGIONAL_GENERATION_FIELDS) {
+    const value = point[field]
+    if (value === null) return null
+    total += value
+  }
+  return total > 0 ? total : null
+}
+
+export function regionalRenewableShare(point: RegionalGeneration): number | null {
+  const total = regionalProductionTotalMw(point)
+  if (
+    total === null ||
+    point.hydraulique === null ||
+    point.eolien === null ||
+    point.solaire === null ||
+    point.bioenergies === null
+  ) {
+    return null
+  }
+  return (point.hydraulique + point.eolien + point.solaire + point.bioenergies) / total
+}
+
+/** Production locale rapportée à la consommation locale (peut dépasser 1 : la
+ * région exporte alors son excédent vers ses voisines). */
+export function regionalAutonomy(point: RegionalGeneration): number | null {
+  const total = regionalProductionTotalMw(point)
+  const conso = point.consommation
+  if (total === null || conso === null || conso === undefined || conso <= 0) return null
+  return total / conso
+}
+
+/** Autonomie nationale : même garde que l'équivalent régional. */
+export function nationalAutonomy(point: NationalPoint & { consommation: number }): number | null {
+  const total = productionTotalMw(point)
+  if (total === null || point.consommation <= 0) return null
+  return total / point.consommation
+}

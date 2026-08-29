@@ -34,10 +34,12 @@ function RegionPanel({
   region,
   national,
   onClose,
+  onExplore,
 }: {
   region: RegionalLatest
   national: NationalLatest | null
   onClose: () => void
+  onExplore?: ((code: string, name: string) => void) | undefined
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -103,6 +105,17 @@ function RegionPanel({
           ))}
       </p>
       <p className="mt-1.5 font-data text-[10.5px] text-ink-40">{formatFreshness(region.ts)}</p>
+      {onExplore !== undefined && (
+        <button
+          type="button"
+          onClick={() => {
+            onExplore(region.region_code, region.region_name)
+          }}
+          className="mt-2 rounded-md border border-line-strong px-2.5 py-1 font-data text-xs text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Creuser dans l'Explorateur ↓
+        </button>
+      )}
     </div>
   )
 }
@@ -111,10 +124,12 @@ export function MapSection({
   regions,
   national,
   regionsStatus,
+  onExploreRegion,
 }: {
   regions: readonly RegionalLatest[]
   national: NationalLatest | null
   regionsStatus: RegionsStatus
+  onExploreRegion?: (code: string, name: string) => void
 }) {
   const geoQuery = useRegionsGeo()
   const reduceMotion = usePrefersReducedMotion()
@@ -216,7 +231,12 @@ export function MapSection({
         </nav>
       )}
       {selected !== null && (
-        <RegionPanel region={selected} national={national} onClose={closePanel} />
+        <RegionPanel
+          region={selected}
+          national={national}
+          onClose={closePanel}
+          onExplore={onExploreRegion}
+        />
       )}
       <p className="mt-2 font-data text-[10.5px] text-ink-40">
         Corse : non couverte par éCO2mix régional. Flux : particules dans le sens du courant, cyan =

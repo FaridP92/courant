@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchEcowatt, fetchMetropoles6h, fetchNationalLatest, fetchNationalRange } from './api.ts'
+import {
+  fetchEcowatt,
+  fetchMetropoles6h,
+  fetchMetropoleSeries,
+  fetchNationalLatest,
+  fetchNationalRange,
+  fetchRegionalSeries,
+} from './api.ts'
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './config.ts'
 
 const latestRow = {
@@ -64,6 +71,30 @@ describe('fetchNationalRange', () => {
     expect(points).toHaveLength(1)
     const [url] = stub.mock.calls[0] as [string]
     expect(url).toBe(`${SUPABASE_URL}/rest/v1/v_national_24h?select=*&order=ts.asc&limit=200`)
+  })
+})
+
+describe('fetchRegionalSeries et fetchMetropoleSeries', () => {
+  it('filtre par territoire, trie en descendant côté serveur et remet la série à l endroit', async () => {
+    const stub = stubFetch([
+      { ts: '2026-08-29T18:00:00+00:00' },
+      { ts: '2026-08-29T17:00:00+00:00' },
+    ])
+    const regional = await fetchRegionalSeries('84', '7d')
+    await fetchMetropoleSeries('200046977')
+    const [url1] = stub.mock.calls[0] as [string]
+    const [url2] = stub.mock.calls[1] as [string]
+    expect(url1).toBe(
+      `${SUPABASE_URL}/rest/v1/v_regional_7d?select=*&region_code=eq.84&order=ts.desc&limit=1000`,
+    )
+    expect(url2).toBe(
+      `${SUPABASE_URL}/rest/v1/v_metropoles_7d?select=*&epci_code=eq.200046977&order=ts.desc&limit=1000`,
+    )
+    // une troncature au plafond perdrait les points anciens, jamais les récents
+    expect(regional.map((p) => p.ts)).toEqual([
+      '2026-08-29T17:00:00+00:00',
+      '2026-08-29T18:00:00+00:00',
+    ])
   })
 })
 

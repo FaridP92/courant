@@ -30,11 +30,17 @@ const region = (code: string, name: string, consommation: number): RegionalLates
 function renderMap(
   regions: readonly RegionalLatest[],
   regionsStatus: 'pending' | 'error' | 'success',
+  onExploreRegion?: (code: string, name: string) => void,
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MapSection regions={regions} national={null} regionsStatus={regionsStatus} />
+      <MapSection
+        regions={regions}
+        national={null}
+        regionsStatus={regionsStatus}
+        {...(onExploreRegion === undefined ? {} : { onExploreRegion })}
+      />
     </QueryClientProvider>,
   )
 }
@@ -90,5 +96,16 @@ describe('MapSection : sélection au clavier', () => {
     expect(screen.queryByRole('heading', { level: 3, name: 'Île-de-France' })).toBeNull()
     // le focus revient sur le bouton de la région, jamais perdu sur body
     expect(button).toHaveFocus()
+  })
+
+  it("le panneau relie la carte à l'Explorateur avec le code et le nom de la région", async () => {
+    stubGeoFetch()
+    const user = userEvent.setup()
+    const onExplore = vi.fn()
+    renderMap([region('84', 'Auvergne-Rhône-Alpes', 6000)], 'success', onExplore)
+
+    await user.click(screen.getByRole('button', { name: 'Auvergne-Rhône-Alpes' }))
+    await user.click(screen.getByRole('button', { name: /Creuser dans l'Explorateur/ }))
+    expect(onExplore).toHaveBeenCalledWith('84', 'Auvergne-Rhône-Alpes')
   })
 })
