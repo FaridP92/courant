@@ -65,6 +65,7 @@ export interface TimeColumnChartOption {
   xAxis: object
   yAxis: object
   tooltip: object
+  dataZoom: object[]
   series: LineSeries[]
 }
 
@@ -190,6 +191,17 @@ function cursorMarkLine(lastTs: string, label: string | null): CursorMarkLine {
   }
 }
 
+/** Zoom interne : molette et pincement sur l'axe du temps, sans barre visible. */
+const insideZoom = (): object[] => [
+  {
+    type: 'inside',
+    xAxisIndex: 0,
+    filterMode: 'none',
+    zoomOnMouseWheel: true,
+    moveOnMouseMove: true,
+  },
+]
+
 export function buildHeroChartOption(
   points: readonly NationalPoint[],
   now: Date = new Date(),
@@ -218,6 +230,7 @@ export function buildHeroChartOption(
       max: ({ max }: { max: number }) => Math.ceil((max + 2000) / 5000) * 5000,
     }),
     tooltip: gwTooltip(),
+    dataZoom: insideZoom(),
     series: [
       realized,
       {
@@ -248,13 +261,17 @@ export function buildHeroChartOption(
   }
 }
 
-export function buildMixChartOption(points: readonly NationalPoint[]): TimeColumnChartOption {
+export function buildMixChartOption(
+  points: readonly NationalPoint[],
+  hiddenKeys: ReadonlySet<string> = new Set(),
+): TimeColumnChartOption {
   const last = lastCompletePoint(points)
+  const visibleFuels = FUELS.filter((fuel) => !hiddenKeys.has(fuel.key))
   // labels directs exigés par la palette validée : nucléaire + la 2e filière dominante
   let secondKey: string | null = null
   if (last) {
     let best = -1
-    for (const fuel of FUELS) {
+    for (const fuel of visibleFuels) {
       if (fuel.key === 'nucleaire') continue
       const value = last[fuel.key]
       if (value !== null && value > best) {
@@ -269,7 +286,8 @@ export function buildMixChartOption(points: readonly NationalPoint[]): TimeColum
     xAxis: timeAxis(),
     yAxis: gwAxis(),
     tooltip: gwTooltip({ order: 'seriesDesc' }),
-    series: FUELS.map((fuel, index) => {
+    dataZoom: insideZoom(),
+    series: visibleFuels.map((fuel, index) => {
       const series: LineSeries = {
         name: fuel.label,
         type: 'line',

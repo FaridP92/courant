@@ -121,6 +121,18 @@ describe('buildMixChartOption', () => {
     expect(labelled).toEqual(['Nucléaire', 'Hydraulique'])
   })
 
+  it('active le zoom interne sur les deux vues', () => {
+    expect(buildHeroChartOption(series24h).dataZoom).toHaveLength(1)
+    expect(option.dataZoom).toHaveLength(1)
+  })
+
+  it('masque les filières demandées et recalcule les labels dominants', () => {
+    const filtered = buildMixChartOption(series24h, new Set(['hydraulique']))
+    expect(filtered.series.map((s) => s.name)).not.toContain('Hydraulique')
+    const labelled = filtered.series.filter((s) => s.endLabel !== undefined).map((s) => s.name)
+    expect(labelled).toEqual(['Nucléaire', 'Éolien'])
+  })
+
   it('reporte le repère du dernier point complet sur le mix aussi, sans libellé', () => {
     const markLine = option.series[0]?.markLine
     expect(markLine?.data[0]?.xAxis).toBe(Date.parse('2026-08-29T10:15:00+00:00'))

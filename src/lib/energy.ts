@@ -50,6 +50,6 @@ export function renewablesShare(point: NationalPoint): number | null {
   return (point.hydraulique + point.eolien + point.solaire + point.bioenergies) / total
 }
 
-export function exchangeBalanceMw(point: NationalPoint): number | null {
+export function exchangeBalanceMw(point: Pick<NationalPoint, 'ech_physiques'>): number | null {
   return point.ech_physiques === null ? null : -point.ech_physiques
 }

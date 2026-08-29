@@ -9,6 +9,7 @@ export const surfaces = {
   panel: '#101b21',
   raised: '#16242c',
   line: '#223440',
+  lineStrong: '#31485a',
   grid: '#1a2932',
 } as const
 

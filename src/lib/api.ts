@@ -29,6 +29,11 @@ export interface NationalLatest extends NationalPoint {
   consommation: number
   nucleaire: number
   taux_co2: number
+  ech_comm_angleterre: number | null
+  ech_comm_espagne: number | null
+  ech_comm_italie: number | null
+  ech_comm_suisse: number | null
+  ech_comm_allemagne_belgique: number | null
   updated_at: string
 }
 
@@ -42,11 +47,53 @@ async function fetchRows<T>(path: string): Promise<T[]> {
   return (await response.json()) as T[]
 }
 
+/** Dernier point complet par région (choroplèthe). */
+export interface RegionalLatest {
+  region_code: string
+  region_name: string
+  ts: string
+  maturity: 'R' | 'C' | 'D'
+  consommation: number
+  thermique: number | null
+  nucleaire: number | null
+  eolien: number | null
+  solaire: number | null
+  hydraulique: number | null
+  pompage: number | null
+  bioenergies: number | null
+  ech_physiques: number | null
+}
+
+/** Un point de consommation d'une métropole (fenêtre 6 h). */
+export interface MetropolePoint {
+  epci_code: string
+  name: string
+  ts: string
+  consommation: number | null
+}
+
+/** Plages du sélecteur de période : 24 h au quart d'heure, 7 j et 30 j à l'heure. */
+export type NationalRange = '24h' | '7d' | '30d'
+
+const RANGE_PATHS: Record<NationalRange, string> = {
+  '24h': 'v_national_24h?select=*&order=ts.asc&limit=200',
+  '7d': 'v_national_7d?select=*&order=ts.asc&limit=400',
+  '30d': 'v_national_30d?select=*&order=ts.asc&limit=900',
+}
+
 export async function fetchNationalLatest(): Promise<NationalLatest | null> {
   const rows = await fetchRows<NationalLatest>('v_national_latest?select=*')
   return rows[0] ?? null
 }
 
-export async function fetchNational24h(): Promise<NationalPoint[]> {
-  return fetchRows<NationalPoint>('v_national_24h?select=*&order=ts.asc&limit=200')
+export async function fetchNationalRange(range: NationalRange): Promise<NationalPoint[]> {
+  return fetchRows<NationalPoint>(RANGE_PATHS[range])
+}
+
+export async function fetchRegionalLatest(): Promise<RegionalLatest[]> {
+  return fetchRows<RegionalLatest>('v_regional_latest?select=*&limit=20')
+}
+
+export async function fetchMetropoles6h(): Promise<MetropolePoint[]> {
+  return fetchRows<MetropolePoint>('v_metropoles_6h?select=*&order=ts.asc&limit=1000')
 }

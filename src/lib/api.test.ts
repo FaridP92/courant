@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchNational24h, fetchNationalLatest } from './api.ts'
+import { fetchMetropoles6h, fetchNationalLatest, fetchNationalRange } from './api.ts'
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './config.ts'
 
 const latestRow = {
@@ -57,12 +57,21 @@ describe('fetchNationalLatest', () => {
   })
 })
 
-describe('fetchNational24h', () => {
+describe('fetchNationalRange', () => {
   it('demande la série ordonnée par ts croissant', async () => {
     const stub = stubFetch([latestRow])
-    const points = await fetchNational24h()
+    const points = await fetchNationalRange('24h')
     expect(points).toHaveLength(1)
     const [url] = stub.mock.calls[0] as [string]
     expect(url).toBe(`${SUPABASE_URL}/rest/v1/v_national_24h?select=*&order=ts.asc&limit=200`)
+  })
+})
+
+describe('fetchMetropoles6h', () => {
+  it("impose l'ordre chronologique côté requête : le front ne dépend pas de l'ordre interne de la vue", async () => {
+    const stub = stubFetch([])
+    await fetchMetropoles6h()
+    const [url] = stub.mock.calls[0] as [string]
+    expect(url).toBe(`${SUPABASE_URL}/rest/v1/v_metropoles_6h?select=*&order=ts.asc&limit=1000`)
   })
 })

@@ -1,23 +1,23 @@
 import { useEffect, useRef } from 'react'
-import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
-import { GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import type { TimeColumnChartOption } from './chartOptions.ts'
-
-echarts.use([LineChart, GridComponent, MarkLineComponent, TooltipComponent, CanvasRenderer])
+import { echarts } from './echartsSetup.ts'
 
 interface EChartProps {
-  option: TimeColumnChartOption
+  option: object
   /** Même groupe = crosshair synchronisé entre graphes (la colonne du temps). */
   group?: string
   ariaLabel: string
   className: string
+  onClick?: (params: unknown) => void
 }
 
-export function EChart({ option, group, ariaLabel, className }: EChartProps) {
+export function EChart({ option, group, ariaLabel, className, onClick }: EChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
+  const clickRef = useRef<EChartProps['onClick']>(onClick)
+
+  useEffect(() => {
+    clickRef.current = onClick
+  }, [onClick])
 
   useEffect(() => {
     const el = containerRef.current
@@ -28,6 +28,9 @@ export function EChart({ option, group, ariaLabel, className }: EChartProps) {
       chart.group = group
       echarts.connect(group)
     }
+    chart.on('click', (params) => {
+      clickRef.current?.(params)
+    })
     const observer = new ResizeObserver(() => {
       chart.resize()
     })
@@ -40,11 +43,14 @@ export function EChart({ option, group, ariaLabel, className }: EChartProps) {
   }, [group])
 
   useEffect(() => {
-    // nos options sont structurellement valides pour ECharts, mais typées maison (voir chartOptions.ts)
-    chartRef.current?.setOption(
-      option as unknown as Parameters<echarts.ECharts['setOption']>[0],
-      true,
-    )
+    // nos options sont structurellement valides pour ECharts, mais typées maison.
+    // Fusion plutôt que remplacement (notMerge) : l'état interne du dataZoom survit
+    // aux refetchs de 60 s, le zoom de l'utilisateur n'est jamais remis à zéro.
+    // replaceMerge sur series : une filière masquée disparaît vraiment au lieu de
+    // laisser une série orpheline fusionnée.
+    chartRef.current?.setOption(option as unknown as Parameters<echarts.ECharts['setOption']>[0], {
+      replaceMerge: ['series'],
+    })
   }, [option])
 
   return <div ref={containerRef} role="img" aria-label={ariaLabel} className={className} />
