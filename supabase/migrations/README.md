@@ -24,6 +24,7 @@ reproductibilité. L'ordre des fichiers est l'ordre d'application.
 | 0015_ecowatt_tempo_foundation.sql | Signaux Ecowatt (jours + heures) et calendrier Tempo, RPC et vues v_ecowatt / v_tempo |
 | 0016_explorer_territory_series.sql | Séries par territoire pour l'Explorateur : v_regional_24h/7d/30d, v_metropoles_7d |
 | 0017_anchor_territory_windows.sql | Fenêtres régionales ancrées sur le dernier point publié, grants alignés |
+| 0018_daily_brief_foundation.sql | Brief du matin : faits SQL de la veille, table des briefs, RPC et v_brief |
 
 Conventions : colonnes de mesures aux noms exacts des champs ODRÉ (contrat de source,
 introspection du 2026-08-28, voir ADR-0003) ; identifiants structurels en anglais.
