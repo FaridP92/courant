@@ -147,6 +147,18 @@ async function mockApi(page: Page) {
   await page.route('**/rest/v1/v_regional_30d**', (route) =>
     route.fulfill({ json: regionalSeriesFor(regionCodeFromUrl(route.request().url())) }),
   )
+  await page.route('**/rest/v1/v_brief**', (route) =>
+    route.fulfill({
+      json: [
+        {
+          day: parisDay(-1),
+          body: "La journée d'hier a été calme sur le réseau électrique français.",
+          model: 'mistral-small-latest',
+          generated_at: new Date(BASE_TS).toISOString(),
+        },
+      ],
+    }),
+  )
   await page.route('**/rest/v1/v_metropoles_7d**', (route) => {
     const epci = /epci_code=eq\.([^&]+)/.exec(route.request().url())?.[1]
     return route.fulfill({ json: metros.filter((m) => m.epci_code === epci) })
@@ -182,6 +194,9 @@ test.describe('Dashboard avec données mockées', () => {
       .poll(async () => page.locator('canvas').count(), { timeout: 10000 })
       .toBeGreaterThanOrEqual(3)
     await expect(page.getByText(/Bioénergies/)).toBeVisible()
+    // le brief du matin est affiché avec sa provenance
+    await expect(page.getByText(/journée d'hier a été calme/)).toBeVisible()
+    await expect(page.getByText(/Rédigé par IA \(Mistral\)/)).toBeVisible()
     // un mapping cassé produirait des NaN : garde générique
     await expect(page.getByText(/NaN/)).toHaveCount(0)
   })

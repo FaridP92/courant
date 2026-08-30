@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
+  fetchBrief,
   fetchEcowatt,
   fetchMetropoles6h,
   fetchMetropoleSeries,
@@ -61,6 +62,15 @@ export function useTempoData() {
     queryKey: ['tempo'],
     queryFn: fetchTempo,
     refetchInterval: REFRESH_INTERVAL_MS,
+  })
+}
+
+/** Le brief change une fois par jour : un refetch toutes les 15 minutes suffit. */
+export function useBriefData() {
+  return useQuery({
+    queryKey: ['brief'],
+    queryFn: fetchBrief,
+    refetchInterval: 15 * 60 * 1000,
   })
 }
 

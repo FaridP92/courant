@@ -11,6 +11,7 @@ import {
 } from '../lib/format.ts'
 import { accent, forecastDayBefore, forecastToday, FUELS, ink } from '../lib/palette.ts'
 import {
+  useBriefData,
   useEcowattData,
   useMetropolesData,
   useNationalLatest,
@@ -30,6 +31,7 @@ import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { DashboardHeader } from './DashboardHeader.tsx'
 import { ExportButton } from './ExportButton.tsx'
 import { KpiCard } from './KpiCard.tsx'
+import { BriefSection } from './BriefSection.tsx'
 import { ExplorerSection } from './ExplorerSection.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
@@ -356,6 +358,7 @@ export function Dashboard() {
   const metropolesQuery = useMetropolesData()
   const ecowattQuery = useEcowattData()
   const tempoQuery = useTempoData()
+  const briefQuery = useBriefData()
   const [explorerTerritory, setExplorerTerritory] = useState<Territory>(FRANCE)
   const reduceMotion = usePrefersReducedMotion()
 
@@ -434,6 +437,7 @@ export function Dashboard() {
               territory={explorerTerritory}
               onTerritoryChange={setExplorerTerritory}
             />
+            <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
           </>
         )}
       </main>

@@ -184,3 +184,16 @@ export async function fetchTempo(): Promise<TempoSnapshot | null> {
   const rows = await fetchRows<TempoSnapshot>('v_tempo?select=*')
   return rows[0] ?? null
 }
+
+/** Le brief du matin (v_brief) : prose IA, chiffres calculés en base. */
+export interface DailyBrief {
+  day: string
+  body: string
+  model: string
+  generated_at: string
+}
+
+export async function fetchBrief(): Promise<DailyBrief | null> {
+  const rows = await fetchRows<DailyBrief>('v_brief?select=*')
+  return rows[0] ?? null
+}
