@@ -9,6 +9,7 @@ import {
   formatWholePercent,
 } from '../lib/format.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
+import { mapExportRows } from '../lib/exports.ts'
 import { MAP_METRICS, mapMetricOption, type MapMetric } from '../lib/filters.ts'
 import { buildMapOption, mapAriaLabel, REGIONS_MAP_NAME } from './charts/mapOptions.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
@@ -161,18 +162,7 @@ export function MapSection({
   )
   const ariaLabel = useMemo(() => mapAriaLabel(regions, metric), [regions, metric])
 
-  const exportRows = regions.map((r) => ({
-    region: r.region_name,
-    ts: r.ts,
-    consommation_mw: r.consommation,
-    solde_export_mw: r.ech_physiques === null ? null : -r.ech_physiques,
-    nucleaire_mw: r.nucleaire,
-    hydraulique_mw: r.hydraulique,
-    eolien_mw: r.eolien,
-    solaire_mw: r.solaire,
-    bioenergies_mw: r.bioenergies,
-    thermique_mw: r.thermique,
-  }))
+  const exportRows = mapExportRows(regions)
 
   // une panne de la source ne se déguise jamais en chargement infini
   const regionsUnavailable =
@@ -194,7 +184,7 @@ export function MapSection({
             value={metric}
             onChange={onMetricChange}
           />
-          <ExportButton rows={exportRows} filename="courant-regions.csv" />
+          <ExportButton rows={exportRows} filename={`courant-regions-${metric}.csv`} />
         </div>
       </div>
       {geoQuery.isSuccess && regions.length > 0 ? (

@@ -14,6 +14,7 @@ import {
   formatParisClock,
   formatWholePercent,
 } from '../lib/format.ts'
+import { regionalExportRows, territoryExportRows } from '../lib/exports.ts'
 import { formatDayShort, parisDayIso } from '../lib/signals.ts'
 import { seriesStats, trimTrailingGaps, windowFromLast } from '../lib/stats.ts'
 import {
@@ -216,19 +217,8 @@ export function ExplorerSection({
   const label = territoryLabel(resolved)
   const exportRows =
     territory.kind === 'region'
-      ? regionalPoints.map((p) => ({
-          ts: p.ts,
-          consommation_mw: p.consommation,
-          nucleaire_mw: p.nucleaire,
-          hydraulique_mw: p.hydraulique,
-          eolien_mw: p.eolien,
-          solaire_mw: p.solaire,
-          bioenergies_mw: p.bioenergies,
-          thermique_mw: p.thermique,
-          pompage_mw: p.pompage,
-          ech_physiques_mw: p.ech_physiques,
-        }))
-      : points.map((p) => ({ ts: p.ts, consommation_mw: p.consommation }))
+      ? regionalExportRows(regionalPoints)
+      : territoryExportRows(points, label)
 
   return (
     <section

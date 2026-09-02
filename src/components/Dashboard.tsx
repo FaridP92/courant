@@ -26,6 +26,7 @@ import {
   useRegionalData,
   useTempoData,
 } from '../hooks/useNationalData.ts'
+import { nationalExportRows } from '../lib/exports.ts'
 import { parisDayIso } from '../lib/signals.ts'
 import { exceedanceBands } from '../lib/stats.ts'
 import { useFilters } from '../hooks/useFilters.ts'
@@ -220,22 +221,7 @@ function TimeColumn({
         ? `aucun pas au-dessus de ${String(filters.co2Threshold)} g/kWh sur la période`
         : `zones ombrées : ${String(carbonSteps)} pas au-dessus de ${String(filters.co2Threshold)} g/kWh, pointe ${String(carbonPeak)}`
   const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
-  const exportRows = points.map((p) => ({
-    ts: p.ts,
-    consommation_mw: p.consommation,
-    prevision_j1_mw: p.prevision_j1,
-    prevision_j_mw: p.prevision_j,
-    nucleaire_mw: p.nucleaire,
-    hydraulique_mw: p.hydraulique,
-    eolien_mw: p.eolien,
-    solaire_mw: p.solaire,
-    gaz_mw: p.gaz,
-    fioul_mw: p.fioul,
-    charbon_mw: p.charbon,
-    bioenergies_mw: p.bioenergies,
-    ech_physiques_mw: p.ech_physiques,
-    taux_co2_g_kwh: p.taux_co2,
-  }))
+  const exportRows = nationalExportRows(points)
   // l'export livre exactement la vue filtrée : le nom du fichier porte donc le critère
   const exportSuffix =
     filters.maturity.size < MATURITIES.length ? `-${[...filters.maturity].join('')}` : ''
