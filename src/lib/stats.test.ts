@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seriesStats, trimTrailingGaps, windowFromLast } from './stats.ts'
+import { exceedanceBands, seriesStats, trimTrailingGaps, windowFromLast } from './stats.ts'
 
 const point = (ts: string, consommation: number | null) => ({ ts, consommation })
 
@@ -68,5 +68,43 @@ describe('windowFromLast', () => {
     const only = point('2026-08-29T18:00:00+00:00', 1000)
     expect(windowFromLast([], 26)).toEqual([])
     expect(windowFromLast([only], 26)).toEqual([only])
+  })
+})
+
+describe('exceedanceBands', () => {
+  const at = (minute: number, value: number | null) => ({
+    ts: `2026-01-15T10:${String(minute).padStart(2, '0')}:00+00:00`,
+    value,
+  })
+
+  it('regroupe les pas consécutifs au-dessus du seuil, avec leur pointe', () => {
+    const bands = exceedanceBands([at(0, 20), at(15, 60), at(30, 74), at(45, 20), at(50, 55)], 50)
+
+    expect(bands).toHaveLength(2)
+    expect(bands[0]).toEqual({
+      from: '2026-01-15T10:15:00+00:00',
+      to: '2026-01-15T10:30:00+00:00',
+      peak: 74,
+      count: 2,
+    })
+    expect(bands[1]?.count).toBe(1)
+    expect(bands[1]?.peak).toBe(55)
+  })
+
+  it('le seuil est strict : une valeur égale ne déclenche rien', () => {
+    expect(exceedanceBands([at(0, 50), at(15, 50)], 50)).toEqual([])
+  })
+
+  it('un trou coupe la plage : aucune continuité inventée par-dessus une donnée absente', () => {
+    const bands = exceedanceBands([at(0, 60), at(15, null), at(30, 60)], 50)
+
+    expect(bands).toHaveLength(2)
+    expect(bands[0]?.count).toBe(1)
+    expect(bands[1]?.count).toBe(1)
+  })
+
+  it('une série vide ou toujours sous le seuil ne produit aucune plage', () => {
+    expect(exceedanceBands([], 50)).toEqual([])
+    expect(exceedanceBands([at(0, 10), at(15, 20)], 50)).toEqual([])
   })
 })

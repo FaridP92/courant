@@ -24,6 +24,9 @@ export interface Filters {
   readonly fuels: ReadonlySet<FuelKey>
   /** Maturités retenues ; au moins une, toujours. */
   readonly maturity: ReadonlySet<Maturity>
+  /** Seuil d'intensité carbone en g/kWh : met en évidence les pas au-dessus, sans
+   * jamais les masquer (une pointe carbone reste une mesure, pas un défaut). */
+  readonly co2Threshold: number | null
 }
 
 const RANGES: readonly NationalRange[] = ['24h', '7d', '30d']
@@ -97,12 +100,16 @@ export const MATURITIES: readonly MaturityOption[] = [
 
 const MATURITY_VALUES: readonly Maturity[] = MATURITIES.map((option) => option.value)
 
+/** Paliers proposés, cadrés sur l'intensité carbone française observée (g/kWh). */
+export const CO2_THRESHOLDS: readonly number[] = [30, 50, 80]
+
 export const DEFAULT_FILTERS: Filters = {
   range: '24h',
   mapMetric: 'consommation',
   territory: FRANCE_REF,
   fuels: new Set(FUEL_KEYS),
   maturity: new Set(MATURITY_VALUES),
+  co2Threshold: null,
 }
 
 /** Lecture tolérante : une valeur inconnue est ignorée, un ensemble vide retombe sur
@@ -128,6 +135,7 @@ export function parseFilters(search: string): Filters {
       MAP_METRIC_VALUES.find((value) => value === params.get('map')) ?? DEFAULT_FILTERS.mapMetric,
     fuels: parseSet(params.get('fuels'), FUEL_KEYS, DEFAULT_FILTERS.fuels),
     maturity: parseSet(params.get('maturity'), MATURITY_VALUES, DEFAULT_FILTERS.maturity),
+    co2Threshold: CO2_THRESHOLDS.find((value) => String(value) === params.get('co2')) ?? null,
   }
 }
 
@@ -152,6 +160,7 @@ export function serializeFilters(filters: Filters): string {
   if (fuels !== null) parts.push(`fuels=${fuels}`)
   const maturity = serializeSet(filters.maturity, MATURITY_VALUES)
   if (maturity !== null) parts.push(`maturity=${maturity}`)
+  if (filters.co2Threshold !== null) parts.push(`co2=${String(filters.co2Threshold)}`)
   return parts.join('&')
 }
 

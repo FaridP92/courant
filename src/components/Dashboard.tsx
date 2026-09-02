@@ -27,6 +27,7 @@ import {
   useTempoData,
 } from '../hooks/useNationalData.ts'
 import { parisDayIso } from '../lib/signals.ts'
+import { exceedanceBands } from '../lib/stats.ts'
 import { useFilters } from '../hooks/useFilters.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import {
@@ -195,7 +196,29 @@ function TimeColumn({
   const scale = heroScaleBoundsGw(points)
   // mémoïsées : un simple re-rendu React ne doit pas déclencher setOption
   // (qui, même en fusion, coûte un layout ECharts)
-  const heroOption = useMemo(() => buildHeroChartOption(points), [points])
+  const heroOption = useMemo(
+    () => buildHeroChartOption(points, new Date(), filters.co2Threshold),
+    [points, filters.co2Threshold],
+  )
+  // même calcul que les zones du graphe : la légende dit ce qu'elles couvrent
+  const carbonBands = useMemo(
+    () =>
+      filters.co2Threshold === null
+        ? []
+        : exceedanceBands(
+            points.map((p) => ({ ts: p.ts, value: p.taux_co2 })),
+            filters.co2Threshold,
+          ),
+    [points, filters.co2Threshold],
+  )
+  const carbonSteps = carbonBands.reduce((total, band) => total + band.count, 0)
+  const carbonPeak = carbonBands.reduce((peak, band) => Math.max(peak, band.peak), 0)
+  const carbonNote =
+    filters.co2Threshold === null
+      ? null
+      : carbonSteps === 0
+        ? `aucun pas au-dessus de ${String(filters.co2Threshold)} g/kWh sur la période`
+        : `zones ombrées : ${String(carbonSteps)} pas au-dessus de ${String(filters.co2Threshold)} g/kWh, pointe ${String(carbonPeak)}`
   const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
   const exportRows = points.map((p) => ({
     ts: p.ts,
@@ -269,7 +292,7 @@ function TimeColumn({
               <EChart
                 option={heroOption}
                 group={TIME_COLUMN_GROUP}
-                ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.`}
+                ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.${carbonNote === null ? '' : ` Mise en évidence : ${carbonNote}.`}`}
                 className="h-[240px] w-full"
               />
             </ChartSlot>
@@ -287,6 +310,12 @@ function TimeColumn({
               <span className="text-[10.5px] text-ink-40">
                 molette ou pincement : zoom temporel
               </span>
+              {carbonNote !== null && (
+                <span className="flex items-center gap-1.5 text-[10.5px] text-ink-40">
+                  <i className="h-2.5 w-3.5 rounded-[2px] bg-ink-40/25" />
+                  {carbonNote}
+                </span>
+              )}
             </p>
           </>
         )}

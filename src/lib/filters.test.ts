@@ -55,6 +55,12 @@ describe('parseFilters', () => {
     expect(parseFilters('?map=densite').mapMetric).toBe('consommation')
   })
 
+  it('lit le seuil CO2, et refuse une valeur hors des paliers proposés', () => {
+    expect(parseFilters('?co2=50').co2Threshold).toBe(50)
+    expect(parseFilters('?co2=42').co2Threshold).toBeNull()
+    expect(parseFilters('?co2=beaucoup').co2Threshold).toBeNull()
+  })
+
   it('lit la période, les filières et la maturité', () => {
     const filters = parseFilters('?range=7d&fuels=nucleaire,eolien&maturity=C,D')
 
@@ -100,6 +106,11 @@ describe('serializeFilters', () => {
     expect(isDefaultFilters(filters)).toBe(false)
   })
 
+  it('écrit le seuil CO2 seulement quand il est posé', () => {
+    expect(serializeFilters({ ...DEFAULT_FILTERS, co2Threshold: 80 })).toBe('co2=80')
+    expect(serializeFilters({ ...DEFAULT_FILTERS, co2Threshold: null })).toBe('')
+  })
+
   it('écrit la métrique de la carte quand elle quitte la consommation', () => {
     expect(serializeFilters({ ...DEFAULT_FILTERS, mapMetric: 'echanges' })).toBe('map=echanges')
     expect(serializeFilters({ ...DEFAULT_FILTERS, mapMetric: 'consommation' })).toBe('')
@@ -117,6 +128,7 @@ describe('serializeFilters', () => {
       range: '30d',
       territory: { kind: 'metropole', code: '200046977' },
       mapMetric: 'renouvelables',
+      co2Threshold: 30,
       fuels: new Set(['nucleaire', 'solaire']),
       maturity: new Set(['R']),
     }

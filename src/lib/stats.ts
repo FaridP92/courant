@@ -48,3 +48,38 @@ export function windowFromLast<T extends { ts: string }>(points: readonly T[], h
   const floor = Date.parse(last.ts) - hours * 3600 * 1000
   return points.filter((p) => Date.parse(p.ts) >= floor)
 }
+
+/** Une plage continue de dépassement d'un seuil, bornée par des mesures réelles. */
+export interface ExceedanceBand {
+  from: string
+  to: string
+  /** Valeur la plus haute atteinte dans la plage. */
+  peak: number
+  /** Nombre de pas mesurés au-dessus du seuil. */
+  count: number
+}
+
+/** Plages où la valeur dépasse strictement le seuil. Un trou (null) referme la plage
+ * en cours : on ne relie jamais deux dépassements par-dessus une donnée absente. */
+export function exceedanceBands(
+  points: readonly { ts: string; value: number | null }[],
+  threshold: number,
+): ExceedanceBand[] {
+  const bands: ExceedanceBand[] = []
+  let current: ExceedanceBand | null = null
+  for (const point of points) {
+    if (point.value === null || point.value <= threshold) {
+      current = null
+      continue
+    }
+    if (current === null) {
+      current = { from: point.ts, to: point.ts, peak: point.value, count: 1 }
+      bands.push(current)
+      continue
+    }
+    current.to = point.ts
+    current.peak = Math.max(current.peak, point.value)
+    current.count += 1
+  }
+  return bands
+}

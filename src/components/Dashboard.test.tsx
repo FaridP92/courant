@@ -365,3 +365,30 @@ describe("Territoire porté par l'URL", () => {
     expect(explorer().getByLabelText('Territoire')).toHaveValue('region:84')
   })
 })
+
+describe('Seuil CO2 : mise en évidence, jamais masquage', () => {
+  const timeColumn = () =>
+    within(screen.getByRole('region', { name: 'Consommation et mix de production dans le temps' }))
+
+  it('dit ce que les zones ombrées couvrent, et garde la courbe entière', async () => {
+    // la fixture est à 32 g/kWh : les trois pas dépassent le palier 30
+    window.history.replaceState(null, '', '/?co2=30')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('zones ombrées : 3 pas au-dessus de 30 g/kWh, pointe 32'),
+    ).toBeInTheDocument()
+    expect(timeColumn().getByRole('img', { name: /Courbe de consommation/ })).toBeInTheDocument()
+  })
+
+  it('un seuil que rien ne dépasse le dit, au lieu de laisser croire à un bug', async () => {
+    window.history.replaceState(null, '', '/?co2=80')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('aucun pas au-dessus de 80 g/kWh sur la période'),
+    ).toBeInTheDocument()
+  })
+})

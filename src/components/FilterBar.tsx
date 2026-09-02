@@ -1,4 +1,11 @@
-import { isDefaultFilters, MATURITIES, toggleWithFloor, type Filters } from '../lib/filters.ts'
+import {
+  CO2_THRESHOLDS,
+  isDefaultFilters,
+  MATURITIES,
+  toggleWithFloor,
+  type Filters,
+} from '../lib/filters.ts'
+import { SegmentedControl, type SegmentedOption } from './controls/SegmentedControl.tsx'
 import { ToggleChip } from './controls/ToggleChip.tsx'
 import { RangeSelector } from './RangeSelector.tsx'
 
@@ -12,6 +19,22 @@ interface FilterBarProps {
 }
 
 const MATURITY_FLOOR = 'Au moins une maturité doit rester retenue'
+
+const NO_THRESHOLD = 'off'
+
+/** Le seuil met en évidence, il ne masque pas : « aucun » est un palier comme les autres. */
+const CO2_OPTIONS: readonly SegmentedOption<string>[] = [
+  {
+    value: NO_THRESHOLD,
+    label: 'aucun',
+    title: "Aucune mise en évidence de l'intensité carbone",
+  },
+  ...CO2_THRESHOLDS.map((threshold) => ({
+    value: String(threshold),
+    label: String(threshold),
+    title: `Met en évidence les pas au-dessus de ${String(threshold)} g/kWh`,
+  })),
+]
 
 export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBarProps) {
   const maturityFiltered = filters.maturity.size < MATURITIES.length
@@ -45,6 +68,19 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
             />
           )
         })}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="font-data text-[10.5px] tracking-[0.08em] text-ink-40 uppercase">CO2</span>
+        <SegmentedControl
+          label="Seuil d'intensité CO2"
+          options={CO2_OPTIONS}
+          value={filters.co2Threshold === null ? NO_THRESHOLD : String(filters.co2Threshold)}
+          onChange={(value) => {
+            onChange({
+              co2Threshold: CO2_THRESHOLDS.find((t) => String(t) === value) ?? null,
+            })
+          }}
+        />
       </div>
       {/* le filtre ne fait jamais disparaître des points en silence : il dit combien il en écarte */}
       {maturityFiltered && kept < total && (

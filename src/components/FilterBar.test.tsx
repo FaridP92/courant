@@ -84,3 +84,29 @@ describe('FilterBar', () => {
     expect(onReset).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('FilterBar : seuil CO2', () => {
+  it('propose les paliers, aucun seuil par défaut', () => {
+    setup()
+
+    expect(screen.getByRole('group', { name: "Seuil d'intensité CO2" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'aucun' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '50' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('poser un palier remonte le seuil en g/kWh', () => {
+    const { onChange } = setup()
+
+    fireEvent.click(screen.getByRole('button', { name: '50' }))
+
+    expect(onChange).toHaveBeenCalledWith({ co2Threshold: 50 })
+  })
+
+  it('revenir à aucun retire le seuil', () => {
+    const { onChange } = setup({ co2Threshold: 50 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'aucun' }))
+
+    expect(onChange).toHaveBeenCalledWith({ co2Threshold: null })
+  })
+})

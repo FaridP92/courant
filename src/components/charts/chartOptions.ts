@@ -10,6 +10,7 @@
  */
 import type { NationalPoint } from '../../lib/api.ts'
 import { formatGigawatts, formatParisClock } from '../../lib/format.ts'
+import { exceedanceBands } from '../../lib/stats.ts'
 import {
   accent,
   forecastDayBefore,
@@ -57,7 +58,16 @@ interface LineSeries {
     lineStyle: { color: string; type: 'dashed'; width: number }
     data: { xAxis: number }[]
   }
+  markArea?: {
+    silent: true
+    itemStyle: { color: string }
+    data: { xAxis: number }[][]
+  }
 }
+
+/** Voile des plages au-dessus du seuil CO2 : une teinte neutre, jamais le rouge
+ * réservé aux signaux Ecowatt et Tempo (règle 9). */
+const CARBON_BAND_COLOR = 'rgba(155, 180, 190, 0.14)'
 
 export interface TimeColumnChartOption {
   animation: boolean
@@ -205,6 +215,7 @@ export const insideZoom = (): object[] => [
 export function buildHeroChartOption(
   points: readonly NationalPoint[],
   now: Date = new Date(),
+  co2Threshold: number | null = null,
 ): TimeColumnChartOption {
   const last = lastCompletePoint(points)
   const realized: LineSeries = {
@@ -220,6 +231,23 @@ export function buildHeroChartOption(
   }
   if (last) {
     realized.markLine = cursorMarkLine(last.ts, cursorLabel(last.ts, now))
+  }
+  if (co2Threshold !== null) {
+    // mise en évidence, jamais masquage : la série garde tous ses points
+    const bands = exceedanceBands(
+      points.map((p) => ({ ts: p.ts, value: p.taux_co2 })),
+      co2Threshold,
+    )
+    if (bands.length > 0) {
+      realized.markArea = {
+        silent: true,
+        itemStyle: { color: CARBON_BAND_COLOR },
+        data: bands.map((band) => [
+          { xAxis: Date.parse(band.from) },
+          { xAxis: Date.parse(band.to) },
+        ]),
+      }
+    }
   }
   return {
     animation: false,

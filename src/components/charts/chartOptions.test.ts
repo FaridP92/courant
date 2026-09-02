@@ -139,3 +139,34 @@ describe('buildMixChartOption', () => {
     expect(markLine?.label.show).toBe(false)
   })
 })
+
+describe('buildHeroChartOption : seuil CO2 en mise en évidence', () => {
+  const carbonSeries: NationalPoint[] = [
+    point('2026-08-29T10:00:00+00:00', { taux_co2: 30 }),
+    point('2026-08-29T10:15:00+00:00', { taux_co2: 62 }),
+    point('2026-08-29T10:30:00+00:00', { taux_co2: 71 }),
+    point('2026-08-29T10:45:00+00:00', { taux_co2: 28 }),
+  ]
+
+  const markAreaOf = (option: ReturnType<typeof buildHeroChartOption>) =>
+    (option.series[0] as { markArea?: { data: { xAxis: number }[][] } }).markArea
+
+  it('sans seuil, aucune zone : la courbe reste nue', () => {
+    expect(markAreaOf(buildHeroChartOption(carbonSeries))).toBeUndefined()
+  })
+
+  it('avec un seuil, ombre les plages dépassées, bornées par des mesures réelles', () => {
+    const option = buildHeroChartOption(carbonSeries, new Date('2026-08-29T10:45:00+00:00'), 50)
+    const area = markAreaOf(option)
+
+    expect(area?.data).toHaveLength(1)
+    expect(area?.data[0]?.[0]?.xAxis).toBe(Date.parse('2026-08-29T10:15:00+00:00'))
+    expect(area?.data[0]?.[1]?.xAxis).toBe(Date.parse('2026-08-29T10:30:00+00:00'))
+  })
+
+  it('les points restent tous là : la mise en évidence ne retire aucune mesure', () => {
+    const option = buildHeroChartOption(carbonSeries, new Date('2026-08-29T10:45:00+00:00'), 50)
+
+    expect((option.series[0] as { data: unknown[] }).data).toHaveLength(carbonSeries.length)
+  })
+})
