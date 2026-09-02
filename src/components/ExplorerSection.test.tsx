@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { afterEach } from 'vitest'
-import type { MetropolePoint, NationalLatest, RegionalLatest } from '../lib/api.ts'
-import { FRANCE, type Territory } from '../lib/territory.ts'
+import type { MetropolePoint, NationalLatest, NationalRange, RegionalLatest } from '../lib/api.ts'
+import { FRANCE_REF, type TerritoryRef } from '../lib/territory.ts'
 import { ExplorerSection } from './ExplorerSection.tsx'
 
 vi.mock('./charts/LazyEChart.tsx', () => ({
@@ -115,8 +115,11 @@ function stubApi() {
   )
 }
 
-function Harness({ initial = FRANCE }: { initial?: Territory }) {
-  const [territory, setTerritory] = useState<Territory>(initial)
+function Harness({ initial = FRANCE_REF }: { initial?: TerritoryRef }) {
+  const [territory, setTerritory] = useState<TerritoryRef>(initial)
+  // la période vit dans les filtres de la page : le harness joue ce rôle ici
+  const [range, setRange] = useState<NationalRange>('24h')
+  const [compare, setCompare] = useState<readonly TerritoryRef[]>([])
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   )
@@ -128,6 +131,10 @@ function Harness({ initial = FRANCE }: { initial?: Territory }) {
         national={national}
         territory={territory}
         onTerritoryChange={setTerritory}
+        compare={compare}
+        onCompareChange={setCompare}
+        range={range}
+        onRangeChange={setRange}
       />
     </QueryClientProvider>
   )
@@ -165,9 +172,7 @@ describe('ExplorerSection', () => {
 
   it('métropole : consommation seule, dit pourquoi les jauges manquent, 30 j désactivé', async () => {
     stubApi()
-    render(
-      <Harness initial={{ kind: 'metropole', code: '200046977', name: 'Métropole de Lyon' }} />,
-    )
+    render(<Harness initial={{ kind: 'metropole', code: '200046977' }} />)
 
     expect(
       await screen.findByText(/Production non publiée à l'échelle des métropoles/),
@@ -181,7 +186,7 @@ describe('ExplorerSection', () => {
       'fetch',
       vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) })),
     )
-    render(<Harness initial={{ kind: 'region', code: '84', name: 'Auvergne-Rhône-Alpes' }} />)
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
 
     expect(
       await screen.findByText('Série indisponible pour ce territoire sur cette période.'),
@@ -199,10 +204,82 @@ describe('ExplorerSection', () => {
         }),
       ),
     )
-    render(<Harness initial={{ kind: 'region', code: '84', name: 'Auvergne-Rhône-Alpes' }} />)
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
 
     expect(
       await screen.findByText('Série indisponible pour ce territoire sur cette période.'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('ExplorerSection : comparaison de territoires', () => {
+  /** Le stub principal ne connaît que la région 84 : ici toute région répond, pour
+   * que la courbe comparée porte de vrais points. */
+  function stubAnyRegion() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        const code = /region_code=eq\.(\d+)/.exec(url)?.[1] ?? '84'
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              url.includes('v_regional_')
+                ? regionalSeries.map((p) => ({
+                    ...p,
+                    region_code: code,
+                    region_name: code === '11' ? 'Île-de-France' : 'Auvergne-Rhône-Alpes',
+                  }))
+                : nationalSeries,
+            ),
+        })
+      }),
+    )
+  }
+
+  it('superpose un second territoire, avec sa courbe nommée et un moyen de le retirer', async () => {
+    stubAnyRegion()
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
+    await screen.findByText('Consommation · Auvergne-Rhône-Alpes')
+
+    fireEvent.change(screen.getByLabelText('Comparer'), { target: { value: 'region:11' } })
+
+    // la courbe comparée est nommée dans la légende et dans la description du graphe
+    const remove = await screen.findByRole('button', { name: /retirer Île-de-France/i })
+    expect(await screen.findByRole('img', { name: /Comparée à Île-de-France/ })).toBeInTheDocument()
+    // jauges et statistiques restent celles du territoire principal : c'est dit
+    expect(
+      screen.getByText(/jauges et statistiques restent celles de Auvergne-Rhône-Alpes/),
+    ).toBeInTheDocument()
+
+    fireEvent.click(remove)
+    expect(screen.queryByRole('button', { name: /retirer Île-de-France/i })).toBeNull()
+  })
+
+  it('ne propose jamais de se comparer à soi-même', async () => {
+    stubAnyRegion()
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
+    await screen.findByText('Consommation · Auvergne-Rhône-Alpes')
+
+    const options = [...screen.getByLabelText<HTMLSelectElement>('Comparer').options].map(
+      (option) => option.value,
+    )
+
+    expect(options).toContain('region:11')
+    expect(options).not.toContain('region:84')
+  })
+
+  it('deux comparaisons au plus : le sélecteur se ferme et dit pourquoi', async () => {
+    stubAnyRegion()
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
+    await screen.findByText('Consommation · Auvergne-Rhône-Alpes')
+
+    fireEvent.change(screen.getByLabelText('Comparer'), { target: { value: 'region:11' } })
+    fireEvent.change(screen.getByLabelText('Comparer'), { target: { value: 'france' } })
+
+    const select = screen.getByLabelText('Comparer')
+    expect(select).toBeDisabled()
+    expect(select).toHaveAttribute('title', expect.stringContaining('Deux comparaisons au plus'))
   })
 })

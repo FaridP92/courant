@@ -10,6 +10,7 @@
  */
 import type { NationalPoint } from '../../lib/api.ts'
 import { formatGigawatts, formatParisClock } from '../../lib/format.ts'
+import { NO_HIGHLIGHTS, type HighlightSet } from '../../lib/highlights.ts'
 import {
   accent,
   forecastDayBefore,
@@ -56,6 +57,27 @@ interface LineSeries {
     }
     lineStyle: { color: string; type: 'dashed'; width: number }
     data: { xAxis: number }[]
+  }
+  markArea?: {
+    silent: true
+    itemStyle: { color: string }
+    data: { xAxis: number }[][]
+  }
+}
+
+/** Voiles des plages au-dessus d'un seuil : teintes neutres ou accent, jamais le
+ * rouge ni l'orange, réservés aux signaux Ecowatt et Tempo (règle 9). */
+const CARBON_BAND_COLOR = 'rgba(155, 180, 190, 0.14)'
+const DEVIATION_BAND_COLOR = 'rgba(46, 230, 255, 0.10)'
+
+type BandArea = NonNullable<LineSeries['markArea']>
+
+function bandArea(bands: HighlightSet['co2'], color: string): BandArea | null {
+  if (bands.length === 0) return null
+  return {
+    silent: true,
+    itemStyle: { color },
+    data: bands.map((band) => [{ xAxis: Date.parse(band.from) }, { xAxis: Date.parse(band.to) }]),
   }
 }
 
@@ -205,6 +227,7 @@ export const insideZoom = (): object[] => [
 export function buildHeroChartOption(
   points: readonly NationalPoint[],
   now: Date = new Date(),
+  highlights: HighlightSet = NO_HIGHLIGHTS,
 ): TimeColumnChartOption {
   const last = lastCompletePoint(points)
   const realized: LineSeries = {
@@ -221,6 +244,26 @@ export function buildHeroChartOption(
   if (last) {
     realized.markLine = cursorMarkLine(last.ts, cursorLabel(last.ts, now))
   }
+  // mise en évidence, jamais masquage : les séries gardent tous leurs points.
+  // ECharts n'accepte qu'une markArea par série : le voile carbone se pose sur le
+  // réalisé, celui de l'écart sur la prévision J-1 qui lui sert de référence.
+  const carbonArea = bandArea(highlights.co2, CARBON_BAND_COLOR)
+  if (carbonArea !== null) realized.markArea = carbonArea
+  const deviationArea = bandArea(highlights.deviation, DEVIATION_BAND_COLOR)
+  const dayBefore: LineSeries = {
+    name: 'Prévision J-1',
+    type: 'line',
+    data: toPairs(points, 'prevision_j1'),
+    showSymbol: false,
+    connectNulls: true,
+    lineStyle: { color: forecastDayBefore, width: 1.6, type: 'dashed' },
+    itemStyle: { color: forecastDayBefore },
+    emphasis: { disabled: true },
+    endLabel: monoEndLabel('J-1', forecastDayBefore),
+    z: 1,
+  }
+  if (deviationArea !== null) dayBefore.markArea = deviationArea
+
   return {
     animation: false,
     grid: { left: 46, right: 40, top: 28, bottom: 26 },
@@ -245,18 +288,7 @@ export function buildHeroChartOption(
         endLabel: monoEndLabel('J', forecastToday),
         z: 2,
       },
-      {
-        name: 'Prévision J-1',
-        type: 'line',
-        data: toPairs(points, 'prevision_j1'),
-        showSymbol: false,
-        connectNulls: true,
-        lineStyle: { color: forecastDayBefore, width: 1.6, type: 'dashed' },
-        itemStyle: { color: forecastDayBefore },
-        emphasis: { disabled: true },
-        endLabel: monoEndLabel('J-1', forecastDayBefore),
-        z: 1,
-      },
+      dayBefore,
     ],
   }
 }

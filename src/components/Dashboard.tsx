@@ -1,5 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { NationalLatest, NationalPoint, NationalRange } from '../lib/api.ts'
+import {
+  applyFilters,
+  FUEL_KEYS,
+  MATURITIES,
+  toggleWithFloor,
+  type Filters,
+} from '../lib/filters.ts'
 import { exchangeBalanceMw, nuclearShare, renewablesShare } from '../lib/energy.ts'
 import {
   formatFreshness,
@@ -19,8 +26,11 @@ import {
   useRegionalData,
   useTempoData,
 } from '../hooks/useNationalData.ts'
+import { nationalExportRows } from '../lib/exports.ts'
+import { territoryKey } from '../lib/territory.ts'
 import { parisDayIso } from '../lib/signals.ts'
-import { FRANCE, type Territory } from '../lib/territory.ts'
+import { heroHighlights, highlightSummary } from '../lib/highlights.ts'
+import { useFilters } from '../hooks/useFilters.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import {
   buildHeroChartOption,
@@ -28,15 +38,16 @@ import {
   heroScaleBoundsGw,
 } from './charts/chartOptions.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
+import { ToggleChip } from './controls/ToggleChip.tsx'
 import { DashboardHeader } from './DashboardHeader.tsx'
 import { ExportButton } from './ExportButton.tsx'
+import { FilterBar } from './FilterBar.tsx'
 import { KpiCard } from './KpiCard.tsx'
 import { BriefSection } from './BriefSection.tsx'
 import { ExplorerSection } from './ExplorerSection.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
 import { SignalsSection } from './SignalsSection.tsx'
-import { RangeSelector } from './RangeSelector.tsx'
 
 const TIME_COLUMN_GROUP = 'time-column'
 /** 6 dernières heures au quart d'heure : la fenêtre des sparklines KPI. */
@@ -164,45 +175,64 @@ function ForecastSwatch({ color, dash }: { color: string; dash: string }) {
 function TimeColumn({
   latest,
   points,
-  range,
-  onRangeChange,
+  filters,
+  onFiltersChange,
+  onReset,
+  kept,
+  total,
 }: {
   latest: NationalLatest
   points: readonly NationalPoint[]
-  range: NationalRange
-  onRangeChange: (range: NationalRange) => void
+  filters: Filters
+  onFiltersChange: (patch: Partial<Filters>) => void
+  onReset: () => void
+  kept: number
+  total: number
 }) {
-  const [hiddenFuels, setHiddenFuels] = useState<ReadonlySet<string>>(new Set())
+  const { range } = filters
+  // le mix raisonne en filières masquées : le complément de celles retenues par le filtre
+  const hiddenFuels = useMemo(
+    () => new Set(FUEL_KEYS.filter((key) => !filters.fuels.has(key))),
+    [filters.fuels],
+  )
   const scale = heroScaleBoundsGw(points)
   // mémoïsées : un simple re-rendu React ne doit pas déclencher setOption
   // (qui, même en fusion, coûte un layout ECharts)
-  const heroOption = useMemo(() => buildHeroChartOption(points), [points])
+  // une seule fois : le graphe ombre ces plages, la légende les décrit
+  const highlights = useMemo(
+    () =>
+      heroHighlights(points, {
+        co2: filters.co2Threshold,
+        // le seuil se choisit en pourcentage, il se calcule en fraction
+        deviation: filters.deviationThreshold === null ? null : filters.deviationThreshold / 100,
+      }),
+    [points, filters.co2Threshold, filters.deviationThreshold],
+  )
+  const heroOption = useMemo(
+    () => buildHeroChartOption(points, new Date(), highlights),
+    [points, highlights],
+  )
+  const carbon = highlightSummary(highlights.co2)
+  const drift = highlightSummary(highlights.deviation)
+  const carbonNote =
+    filters.co2Threshold === null
+      ? null
+      : carbon.steps === 0
+        ? `aucun pas au-dessus de ${String(filters.co2Threshold)} g/kWh sur la période`
+        : `CO2 : ${String(carbon.steps)} pas au-dessus de ${String(filters.co2Threshold)} g/kWh, pointe ${String(carbon.peak)}`
+  const driftNote =
+    filters.deviationThreshold === null
+      ? null
+      : drift.steps === 0
+        ? `aucun écart au J-1 au-dessus de ${String(filters.deviationThreshold)} %`
+        : `écart au J-1 : ${String(drift.steps)} pas au-dessus de ${String(filters.deviationThreshold)} %, pointe ${formatWholePercent(drift.peak)} %`
   const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
-  const exportRows = points.map((p) => ({
-    ts: p.ts,
-    consommation_mw: p.consommation,
-    prevision_j1_mw: p.prevision_j1,
-    prevision_j_mw: p.prevision_j,
-    nucleaire_mw: p.nucleaire,
-    hydraulique_mw: p.hydraulique,
-    eolien_mw: p.eolien,
-    solaire_mw: p.solaire,
-    gaz_mw: p.gaz,
-    fioul_mw: p.fioul,
-    charbon_mw: p.charbon,
-    bioenergies_mw: p.bioenergies,
-    ech_physiques_mw: p.ech_physiques,
-    taux_co2_g_kwh: p.taux_co2,
-  }))
-
-  const toggleFuel = (key: string) => {
-    setHiddenFuels((current) => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else if (next.size < FUELS.length - 1) next.add(key)
-      return next
-    })
-  }
+  const exportRows = nationalExportRows(points)
+  // l'export livre exactement la vue filtrée : le nom du fichier porte donc le critère
+  const exportSuffix =
+    filters.maturity.size < MATURITIES.length ? `-${[...filters.maturity].join('')}` : ''
+  // un filtre qui ne laisse rien se dit : un graphe vide passerait pour une panne
+  const filteredOut = total > 0 && kept === 0
 
   return (
     <section aria-label="Consommation et mix de production dans le temps">
@@ -215,9 +245,18 @@ function TimeColumn({
               {scale !== null && ` · échelle ${String(scale.min)}-${String(scale.max)} GW`}
             </span>
           </h2>
-          <div className="flex items-center gap-2">
-            <RangeSelector value={range} onChange={onRangeChange} />
-            <ExportButton rows={exportRows} filename={`courant-national-${range}.csv`} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterBar
+              filters={filters}
+              onChange={onFiltersChange}
+              onReset={onReset}
+              kept={kept}
+              total={total}
+            />
+            <ExportButton
+              rows={exportRows}
+              filename={`courant-national-${range}${exportSuffix}.csv`}
+            />
           </div>
         </div>
         <div className="mb-1 flex flex-wrap items-end gap-x-7 gap-y-2">
@@ -229,27 +268,61 @@ function TimeColumn({
             {formatFreshness(latest.ts)} · consommation électrique de la France
           </p>
         </div>
-        <ChartSlot heightClass="h-[240px] w-full">
-          <EChart
-            option={heroOption}
-            group={TIME_COLUMN_GROUP}
-            ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.`}
-            className="h-[240px] w-full"
-          />
-        </ChartSlot>
-        <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-[11.5px] text-ink-60">
-          <span className="flex items-center gap-1.5">
-            <i className="h-[3px] w-3.5 rounded-sm bg-accent" />{' '}
-            <b className="font-medium text-ink-100">Réalisé</b>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <ForecastSwatch color={forecastToday} dash="2 3" /> Prévision J
-          </span>
-          <span className="flex items-center gap-1.5">
-            <ForecastSwatch color={forecastDayBefore} dash="6 3" /> Prévision J-1
-          </span>
-          <span className="text-[10.5px] text-ink-40">molette ou pincement : zoom temporel</span>
-        </p>
+        {filteredOut ? (
+          <div className="flex h-[240px] flex-col items-center justify-center gap-1.5 px-4 text-center">
+            <p className="font-data text-sm text-ink-60">
+              Aucune mesure ne correspond aux critères choisis.
+            </p>
+            <p className="max-w-md font-data text-[11.5px] text-ink-40">
+              Les {total} points de la période existent : ils sont seulement écartés par la maturité
+              retenue. Élargissez le critère ou revenez à la vue par défaut.
+            </p>
+          </div>
+        ) : (
+          <>
+            <ChartSlot heightClass="h-[240px] w-full">
+              <EChart
+                option={heroOption}
+                group={TIME_COLUMN_GROUP}
+                ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.${[
+                  carbonNote,
+                  driftNote,
+                ]
+                  .filter((note) => note !== null)
+                  .map((note) => ` Mise en évidence : ${note}.`)
+                  .join('')}`}
+                className="h-[240px] w-full"
+              />
+            </ChartSlot>
+            <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-[11.5px] text-ink-60">
+              <span className="flex items-center gap-1.5">
+                <i className="h-[3px] w-3.5 rounded-sm bg-accent" />{' '}
+                <b className="font-medium text-ink-100">Réalisé</b>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <ForecastSwatch color={forecastToday} dash="2 3" /> Prévision J
+              </span>
+              <span className="flex items-center gap-1.5">
+                <ForecastSwatch color={forecastDayBefore} dash="6 3" /> Prévision J-1
+              </span>
+              <span className="text-[10.5px] text-ink-40">
+                molette ou pincement : zoom temporel
+              </span>
+              {carbonNote !== null && (
+                <span className="flex items-center gap-1.5 text-[10.5px] text-ink-40">
+                  <i className="h-2.5 w-3.5 rounded-[2px] bg-ink-40/25" />
+                  {carbonNote}
+                </span>
+              )}
+              {driftNote !== null && (
+                <span className="flex items-center gap-1.5 text-[10.5px] text-ink-40">
+                  <i className="h-2.5 w-3.5 rounded-[2px] bg-accent/15" />
+                  {driftNote}
+                </span>
+              )}
+            </p>
+          </>
+        )}
       </article>
 
       <article className="rounded-b-(--radius-card) border border-t-0 border-line bg-panel p-4 shadow-(--shadow-card)">
@@ -259,46 +332,43 @@ function TimeColumn({
             même axe temporel : le curseur traverse les deux vues · échelle complète depuis 0
           </span>
         </h2>
-        <ChartSlot heightClass="h-[210px] w-full">
-          <EChart
-            option={mixOption}
-            group={TIME_COLUMN_GROUP}
-            ariaLabel="Aires empilées de la production par filière, du nucléaire en base aux filières d'appoint. La légende permet de masquer des filières."
-            className="h-[210px] w-full"
-          />
-        </ChartSlot>
+        {filteredOut ? (
+          <p className="flex h-[120px] items-center justify-center font-data text-[12.5px] text-ink-40">
+            Mix masqué par le même critère de maturité.
+          </p>
+        ) : (
+          <ChartSlot heightClass="h-[210px] w-full">
+            <EChart
+              option={mixOption}
+              group={TIME_COLUMN_GROUP}
+              ariaLabel="Aires empilées de la production par filière, du nucléaire en base aux filières d'appoint. La légende permet de masquer des filières."
+              className="h-[210px] w-full"
+            />
+          </ChartSlot>
+        )}
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 font-data text-[11.5px] text-ink-60">
           {FUELS.map((fuel) => {
             const value = latest[fuel.key]
-            const hidden = hiddenFuels.has(fuel.key)
-            // au moins une filière reste affichée : le dernier bouton actif le dit
+            const visible = filters.fuels.has(fuel.key)
+            // au moins une filière reste affichée : le dernier chip actif le dit
             // au lieu d'ignorer le clic en silence
-            const isLastVisible = !hidden && hiddenFuels.size >= FUELS.length - 1
             return (
-              <button
+              <ToggleChip
                 key={fuel.key}
-                type="button"
-                aria-pressed={!hidden}
-                aria-disabled={isLastVisible}
-                title={
-                  isLastVisible
+                label={fuel.label}
+                pressed={visible}
+                color={fuel.color}
+                value={value === null ? 'n.d.' : formatGigawatts(value)}
+                title={visible ? `Masquer ${fuel.label}` : `Réafficher ${fuel.label}`}
+                lockedReason={
+                  visible && filters.fuels.size <= 1
                     ? 'Au moins une filière doit rester affichée'
-                    : hidden
-                      ? `Réafficher ${fuel.label}`
-                      : `Masquer ${fuel.label}`
+                    : undefined
                 }
-                onClick={() => {
-                  if (isLastVisible) return
-                  toggleFuel(fuel.key)
+                onToggle={() => {
+                  onFiltersChange({ fuels: toggleWithFloor(filters.fuels, fuel.key) })
                 }}
-                className={`flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 transition-colors hover:border-line-strong focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${hidden ? 'opacity-40' : ''}`}
-              >
-                <i className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: fuel.color }} />
-                <span className={hidden ? 'line-through' : ''}>{fuel.label}</span>{' '}
-                <b className="font-medium text-ink-100">
-                  {value === null ? 'n.d.' : formatGigawatts(value)}
-                </b>
-              </button>
+              />
             )
           })}
           <span className="text-[10.5px] text-ink-40">
@@ -350,20 +420,19 @@ function UnavailableState({ onRetry }: { onRetry: () => void }) {
 }
 
 export function Dashboard() {
-  const [range, setRange] = useState<NationalRange>('24h')
+  const { filters, setFilters, reset } = useFilters()
   const latestQuery = useNationalLatest()
   const spark24hQuery = useNationalSeries('24h')
-  const rangeQuery = useNationalSeries(range)
+  const rangeQuery = useNationalSeries(filters.range)
   const regionalQuery = useRegionalData()
   const metropolesQuery = useMetropolesData()
   const ecowattQuery = useEcowattData()
   const tempoQuery = useTempoData()
   const briefQuery = useBriefData()
-  const [explorerTerritory, setExplorerTerritory] = useState<Territory>(FRANCE)
   const reduceMotion = usePrefersReducedMotion()
 
-  const exploreRegion = (code: string, name: string) => {
-    setExplorerTerritory({ kind: 'region', code, name })
+  const exploreRegion = (code: string) => {
+    setFilters({ territory: { kind: 'region', code } })
     const explorer = document.getElementById('explorer')
     if (explorer !== null) {
       // le focus suit la navigation (clavier et lecteurs d'écran), le défilement
@@ -374,9 +443,18 @@ export function Dashboard() {
   }
 
   const latest = latestQuery.data ?? null
-  const sparkPoints = spark24hQuery.data ?? []
-  const rangePoints = rangeQuery.data ?? []
   const refreshFailing = latestQuery.isError || rangeQuery.isError
+  // les critères portent sur les séries affichées ; le dernier point publié (KPI et gros
+  // chiffre) reste la mesure la plus fraîche disponible, jamais filtrée.
+  // Le repli sur [] vit dans le calcul mémoïsé : sinon un tableau neuf à chaque rendu
+  // relancerait un setOption ECharts complet.
+  const sparkData = spark24hQuery.data
+  const rangeData = rangeQuery.data
+  const filteredRange = useMemo(() => applyFilters(rangeData ?? [], filters), [rangeData, filters])
+  const filteredSpark = useMemo(
+    () => applyFilters(sparkData ?? [], filters).points,
+    [sparkData, filters],
+  )
 
   return (
     <div className="flex min-h-screen flex-col text-ink-100">
@@ -399,19 +477,26 @@ export function Dashboard() {
         )}
         {latest !== null && (
           <>
-            <KpiRow latest={latest} points={sparkPoints} />
+            <KpiRow latest={latest} points={filteredSpark} />
             <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_420px]">
               <TimeColumn
                 latest={latest}
-                points={rangePoints}
-                range={range}
-                onRangeChange={setRange}
+                points={filteredRange.points}
+                filters={filters}
+                onFiltersChange={setFilters}
+                onReset={reset}
+                kept={filteredRange.kept}
+                total={filteredRange.total}
               />
               <div className="flex flex-col gap-3.5">
                 <MapSection
                   regions={regionalQuery.data ?? []}
                   national={latest}
                   regionsStatus={regionalQuery.status}
+                  metric={filters.mapMetric}
+                  onMetricChange={(mapMetric) => {
+                    setFilters({ mapMetric })
+                  }}
                   onExploreRegion={exploreRegion}
                 />
                 {/* priorité mobile du brief : les signaux avant la carte */}
@@ -434,8 +519,25 @@ export function Dashboard() {
               regions={regionalQuery.data ?? []}
               metropoles={metropolesQuery.data ?? []}
               national={latest}
-              territory={explorerTerritory}
-              onTerritoryChange={setExplorerTerritory}
+              territory={filters.territory}
+              onTerritoryChange={(territory) => {
+                // changer de territoire principal ne garde pas une comparaison qui
+                // ferait doublon avec lui
+                setFilters({
+                  territory,
+                  compare: filters.compare.filter(
+                    (ref) => territoryKey(ref) !== territoryKey(territory),
+                  ),
+                })
+              }}
+              compare={filters.compare}
+              onCompareChange={(compare) => {
+                setFilters({ compare })
+              }}
+              range={filters.range}
+              onRangeChange={(range) => {
+                setFilters({ range })
+              }}
             />
             <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
           </>

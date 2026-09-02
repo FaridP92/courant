@@ -221,7 +221,9 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(btn7d).toHaveAttribute('aria-pressed', 'false')
     await btn7d.click()
     await expect(btn7d).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByText(/7 jours en moyenne horaire/)).toBeVisible()
+    // la période est partagée : l'Explorateur affiche le même intitulé, on cadre donc
+    // l'attente sur la colonne du temps
+    await expect(timeColumn.getByText(/7 jours en moyenne horaire/)).toBeVisible()
 
     // légende du mix : masquer une filière (état initial vérifié, sinon un bouton
     // figé sur false passerait le test)
@@ -294,6 +296,111 @@ test.describe('Dashboard avec données mockées', () => {
     await page.keyboard.press('Enter')
     await page.getByRole('button', { name: /Creuser dans l'Explorateur/ }).click()
     await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test("les critères vivent dans l'URL : partage par lien, retour arrière, remise à zéro", async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const timeColumn = page.locator(
+      'section[aria-label="Consommation et mix de production dans le temps"]',
+    )
+    await timeColumn.getByRole('button', { name: '7 j' }).click()
+    await page.getByRole('button', { name: /^Hydraulique/ }).click()
+    await expect(page).toHaveURL(/range=7d/)
+    await expect(page).toHaveURL(/fuels=/)
+
+    // un rechargement (donc un lien partagé) rouvre exactement la même vue
+    await page.reload()
+    await expect(timeColumn.getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    // la période vaut pour toute la page, Explorateur compris
+    await expect(page.locator('#explorer').getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // le retour arrière du navigateur défait le dernier critère
+    await page.goBack()
+    await expect(page.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // la fixture est en temps réel : écarter cette maturité ne laisse aucune mesure,
+    // et le tableau de bord le dit au lieu d'afficher un graphe vide
+    await page.getByRole('button', { name: 'Temps réel' }).click()
+    await expect(page.getByText('Aucune mesure ne correspond aux critères choisis.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Réinitialiser' }).click()
+    await expect(page).toHaveURL(/:4173\/$/)
+    await expect(timeColumn.getByRole('button', { name: '24 h' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  test('territoire, métrique de la carte et seuil CO2 voyagent aussi dans le lien', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/?territory=region:84&map=autonomie&co2=30')
+
+    // territoire : la série et le libellé viennent des données, pas du lien
+    const explorer = page.locator('#explorer')
+    await expect(explorer.getByText('Consommation · Auvergne-Rhône-Alpes')).toBeVisible()
+    await expect(explorer.getByLabel('Territoire')).toHaveValue('region:84')
+
+    // carte : la teinte suit la métrique demandée
+    await expect(page.getByText(/teinte = autonomie/)).toBeVisible()
+    // exact : le nom du fichier d'export porte lui aussi la métrique
+    await expect(page.getByRole('button', { name: 'Autonomie', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // seuil CO2 : la fixture est à 32 g/kWh, les 96 pas dépassent le palier 30
+    await expect(page.getByText('CO2 : 96 pas au-dessus de 30 g/kWh, pointe 32')).toBeVisible()
+
+    // et chaque changement repart dans l'URL
+    await page.getByRole('button', { name: 'Solde' }).click()
+    await expect(page).toHaveURL(/map=echanges/)
+    await explorer.getByLabel('Territoire').selectOption('region:53')
+    await expect(page).toHaveURL(/territory=region:53/)
+    await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test('deux territoires se superposent, et le lien les emporte', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/?territory=region:84')
+
+    const explorer = page.locator('#explorer')
+    await expect(explorer.getByText('Consommation · Auvergne-Rhône-Alpes')).toBeVisible()
+
+    await explorer.getByLabel('Comparer').selectOption('region:53')
+    await expect(page).toHaveURL(/compare=region:53/)
+    // la légende nomme les deux courbes et rappelle ce qui reste au principal
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toBeVisible()
+    await expect(
+      explorer.getByText(/jauges et statistiques restent celles de Auvergne-Rhône-Alpes/),
+    ).toBeVisible()
+
+    // un rechargement rouvre la comparaison à l'identique
+    await page.reload()
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toBeVisible()
+
+    // et le retrait la défait, dans la vue comme dans l'URL
+    await explorer.getByRole('button', { name: /retirer Bretagne/i }).click()
+    await expect(page).not.toHaveURL(/compare=/)
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toHaveCount(0)
   })
 })
 

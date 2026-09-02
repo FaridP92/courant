@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { NationalLatest, NationalPoint } from '../lib/api.ts'
+import type { NationalLatest, NationalPoint, RegionalLatest } from '../lib/api.ts'
 import { Dashboard } from './Dashboard.tsx'
 
 // ECharts a besoin d'un vrai canvas : en jsdom on le remplace par un bloc inerte,
@@ -82,6 +82,8 @@ function stubApi(handler: (url: string) => unknown) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // les filtres vivent dans l'URL : chaque test repart d'une page nue
+  window.history.replaceState(null, '', '/')
 })
 
 describe('Dashboard branché sur les vues publiques', () => {
@@ -187,5 +189,228 @@ describe('Dashboard branché sur les vues publiques', () => {
     expect(await screen.findByText('Données indisponibles')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
     expect(screen.queryByText('0,0')).not.toBeInTheDocument()
+  })
+})
+
+describe('Filtres du tableau de bord', () => {
+  // la colonne du temps et l'Explorateur portent chacun un sélecteur de période :
+  // les requêtes de période sont donc toujours cadrées sur une section
+  const timeColumn = () =>
+    within(screen.getByRole('region', { name: 'Consommation et mix de production dans le temps' }))
+
+  it("la période, les filières et la maturité voyagent dans l'URL", async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.click(timeColumn().getByRole('button', { name: '7 j' }))
+    expect(window.location.search).toBe('?range=7d')
+
+    fireEvent.click(screen.getByRole('button', { name: /^Hydraulique/ }))
+    expect(window.location.search).toContain('fuels=')
+    expect(window.location.search).not.toContain('hydraulique')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Consolidées' }))
+    expect(window.location.search).toContain('maturity=R,D')
+  })
+
+  it('une URL portant des critères rouvre exactement la même vue', async () => {
+    window.history.replaceState(null, '', '/?range=7d&fuels=nucleaire,eolien')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(timeColumn().getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(screen.getByRole('button', { name: /^Nucléaire/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it("la période choisie vaut aussi pour l'Explorateur : un seul critère, deux vues", async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.click(timeColumn().getByRole('button', { name: '30 j' }))
+
+    const explorer = within(screen.getByRole('region', { name: 'Explorateur par territoire' }))
+    expect(explorer.getByRole('button', { name: '30 j' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it("un critère qui écarte toute la série le dit, au lieu d'un graphe vide", async () => {
+    // la fixture est consolidée : ne garder que le temps réel ne laisse aucune mesure
+    window.history.replaceState(null, '', '/?maturity=R')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('Aucune mesure ne correspond aux critères choisis.'),
+    ).toBeInTheDocument()
+    // le graphe héro disparaît au profit du message ; l'Explorateur garde sa propre
+    // série, qui ne porte pas la maturité (vues régionales et métropoles)
+    expect(timeColumn().queryByRole('img', { name: /Courbe de consommation/ })).toBeNull()
+  })
+
+  it('revenir au défaut nettoie les critères et rétablit la vue', async () => {
+    window.history.replaceState(null, '', '/?range=7d&maturity=R')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Réinitialiser' }))
+
+    expect(window.location.search).toBe('')
+    expect(timeColumn().getByRole('button', { name: '24 h' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.queryByText('Aucune mesure ne correspond aux critères choisis.')).toBeNull()
+  })
+
+  it('le filtre de maturité dit combien de points il écarte', async () => {
+    const mixed: NationalPoint[] = points.map((point, index) => ({
+      ...point,
+      maturity: index === 0 ? 'R' : 'C',
+    }))
+    window.history.replaceState(null, '', '/?maturity=C')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : mixed))
+    renderDashboard()
+
+    expect(await screen.findByText('2 points sur 3')).toBeInTheDocument()
+  })
+})
+
+describe("Territoire porté par l'URL", () => {
+  const regionRow: RegionalLatest = {
+    region_code: '84',
+    region_name: 'Auvergne-Rhône-Alpes',
+    ts: latest.ts,
+    maturity: 'C',
+    consommation: 6000,
+    thermique: 100,
+    nucleaire: 3000,
+    eolien: 400,
+    solaire: 100,
+    hydraulique: 300,
+    pompage: -50,
+    bioenergies: 60,
+    ech_physiques: -500,
+  }
+
+  const explorer = () => within(screen.getByRole('region', { name: 'Explorateur par territoire' }))
+
+  function stubWithRegions() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              url.includes('v_national_latest')
+                ? [latest]
+                : url.includes('v_regional_latest')
+                  ? [regionRow]
+                  : url.includes('v_metropoles') ||
+                      url.includes('v_ecowatt') ||
+                      url.includes('v_tempo') ||
+                      url.includes('v_brief')
+                    ? []
+                    : points,
+            ),
+        }),
+      ),
+    )
+  }
+
+  it("changer de territoire écrit le critère dans l'URL", async () => {
+    stubWithRegions()
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.change(await explorer().findByLabelText('Territoire'), {
+      target: { value: 'region:84' },
+    })
+
+    expect(window.location.search).toBe('?territory=region:84')
+    expect(await explorer().findByText('Consommation · Auvergne-Rhône-Alpes')).toBeInTheDocument()
+  })
+
+  it('un lien vers un territoire rouvre ce territoire, libellé résolu depuis les données', async () => {
+    window.history.replaceState(null, '', '/?territory=region:84')
+    stubWithRegions()
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(await explorer().findByText('Consommation · Auvergne-Rhône-Alpes')).toBeInTheDocument()
+    expect(explorer().getByLabelText('Territoire')).toHaveValue('region:84')
+  })
+
+  it('libellés pas encore chargés : le code fait foi, jamais un autre territoire', async () => {
+    window.history.replaceState(null, '', '/?territory=region:84')
+    // v_regional_latest ne répond rien : aucune liste de libellés
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(await explorer().findByText('Consommation · Région 84')).toBeInTheDocument()
+    expect(explorer().getByLabelText('Territoire')).toHaveValue('region:84')
+  })
+})
+
+describe('Seuil CO2 : mise en évidence, jamais masquage', () => {
+  const timeColumn = () =>
+    within(screen.getByRole('region', { name: 'Consommation et mix de production dans le temps' }))
+
+  it('dit ce que les zones ombrées couvrent, et garde la courbe entière', async () => {
+    // la fixture est à 32 g/kWh : les trois pas dépassent le palier 30
+    window.history.replaceState(null, '', '/?co2=30')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('CO2 : 3 pas au-dessus de 30 g/kWh, pointe 32'),
+    ).toBeInTheDocument()
+    expect(timeColumn().getByRole('img', { name: /Courbe de consommation/ })).toBeInTheDocument()
+  })
+
+  it('un seuil que rien ne dépasse le dit, au lieu de laisser croire à un bug', async () => {
+    window.history.replaceState(null, '', '/?co2=80')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('aucun pas au-dessus de 80 g/kWh sur la période'),
+    ).toBeInTheDocument()
+  })
+
+  it("l'écart au programme J-1 a son propre seuil et sa propre légende", async () => {
+    // fixture : 60100, 60800 et 61200 réalisés pour 58800 prévus, soit 2,2 à 4,1 %
+    window.history.replaceState(null, '', '/?ecart=2')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('écart au J-1 : 3 pas au-dessus de 2 %, pointe 4 %'),
+    ).toBeInTheDocument()
+  })
+
+  it('les deux seuils cohabitent, chacun avec sa zone et sa ligne de légende', async () => {
+    window.history.replaceState(null, '', '/?co2=30&ecart=10')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('CO2 : 3 pas au-dessus de 30 g/kWh, pointe 32'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('aucun écart au J-1 au-dessus de 10 %')).toBeInTheDocument()
   })
 })

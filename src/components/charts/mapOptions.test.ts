@@ -107,3 +107,57 @@ describe('buildMapOption', () => {
     expect((option.series[1] as { effect: { show: boolean } }).effect.show).toBe(true)
   })
 })
+
+describe('buildMapOption : métrique choisie', () => {
+  const regions = [region('11', 'Île-de-France', 8000), region('84', 'Auvergne-Rhône-Alpes', 4000)]
+
+  const areaColor = (option: ReturnType<typeof buildMapOption>, code: string) =>
+    (option.geo as { regions: { name: string; itemStyle: { areaColor: string } }[] }).regions.find(
+      (r) => r.name === code,
+    )?.itemStyle.areaColor ?? ''
+
+  const tooltipHtml = (option: ReturnType<typeof buildMapOption>, code: string) => {
+    const series = option.series[0] as unknown as MapTooltipFormatter & {
+      data: { name: string; value: number; balance: number | null; region_name: string }[]
+    }
+    const data = series.data.find((d) => d.name === code)
+    return series.tooltip.formatter({ name: code, ...(data === undefined ? {} : { data }) })
+  }
+
+  it("l'autonomie se lit en pourcentage, pas en gigawatts", () => {
+    // production 4280 (nucléaire 3000, thermique 100, hydro 400, éolien 500, solaire 200,
+    // bio 80) sur 4000 consommés : 107 % pour Auvergne-Rhône-Alpes
+    const option = buildMapOption(regions, national, null, false, 'autonomie')
+
+    expect(tooltipHtml(option, '84')).toContain('%')
+    expect(tooltipHtml(option, '84')).not.toContain('GW consommés')
+  })
+
+  it("le solde d'échanges distingue export et import par la teinte, jamais par le vert ou le rouge", () => {
+    const mixed = [
+      { ...region('11', 'Île-de-France', 8000), ech_physiques: 1200 },
+      { ...region('84', 'Auvergne-Rhône-Alpes', 4000), ech_physiques: -2400 },
+    ]
+    const option = buildMapOption(mixed, national, null, false, 'echanges')
+
+    // export (ech_physiques négatif) : cyan de l'accent ; import : bleu-gris
+    expect(areaColor(option, '84')).toContain('46, 230, 255')
+    expect(areaColor(option, '11')).not.toContain('46, 230, 255')
+    expect(tooltipHtml(option, '84')).toContain('+2,4 GW')
+  })
+
+  it('une métrique indisponible donne une surface neutre et le dit', () => {
+    const incomplete = [{ ...region('11', 'Île-de-France', 8000), eolien: null }]
+    const option = buildMapOption(incomplete, national, null, false, 'renouvelables')
+
+    expect(areaColor(option, '11')).toBe('#12212a')
+    expect(tooltipHtml(option, '11')).toContain('n.d.')
+  })
+
+  it('la consommation reste la métrique par défaut, teinte inchangée', () => {
+    const option = buildMapOption(regions, national, null, false)
+
+    expect(areaColor(option, '11')).toContain('0.55')
+    expect(tooltipHtml(option, '11')).toContain('8,0 GW')
+  })
+})

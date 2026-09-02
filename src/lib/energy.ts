@@ -113,3 +113,13 @@ export function nationalAutonomy(point: NationalPoint & { consommation: number }
   if (total === null || point.consommation <= 0) return null
   return total / point.consommation
 }
+
+/** Écart relatif au programme J-1, en valeur absolue (fraction : 0,05 vaut 5 %).
+ * Sans prévision publiée, sans mesure, ou avec une prévision nulle, il n'y a pas
+ * d'écart à afficher : null, jamais zéro. */
+export function forecastDeviation(point: NationalPoint): number | null {
+  if (point.consommation === null || point.prevision_j1 === null || point.prevision_j1 === 0) {
+    return null
+  }
+  return Math.abs(point.consommation - point.prevision_j1) / point.prevision_j1
+}

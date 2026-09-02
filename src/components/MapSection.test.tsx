@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RegionalLatest } from '../lib/api.ts'
+import type { MapMetric } from '../lib/filters.ts'
 import { MapSection } from './MapSection.tsx'
 
 // jsdom sans canvas : le graphe est testé à part, ici on couvre les états et le clavier
@@ -30,7 +31,9 @@ const region = (code: string, name: string, consommation: number): RegionalLates
 function renderMap(
   regions: readonly RegionalLatest[],
   regionsStatus: 'pending' | 'error' | 'success',
-  onExploreRegion?: (code: string, name: string) => void,
+  onExploreRegion?: (code: string) => void,
+  metric: MapMetric = 'consommation',
+  onMetricChange: (metric: MapMetric) => void = () => undefined,
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -39,6 +42,8 @@ function renderMap(
         regions={regions}
         national={null}
         regionsStatus={regionsStatus}
+        metric={metric}
+        onMetricChange={onMetricChange}
         {...(onExploreRegion === undefined ? {} : { onExploreRegion })}
       />
     </QueryClientProvider>,
@@ -106,6 +111,36 @@ describe('MapSection : sélection au clavier', () => {
 
     await user.click(screen.getByRole('button', { name: 'Auvergne-Rhône-Alpes' }))
     await user.click(screen.getByRole('button', { name: /Creuser dans l'Explorateur/ }))
-    expect(onExplore).toHaveBeenCalledWith('84', 'Auvergne-Rhône-Alpes')
+    // le pont ne transmet que le code : le libellé vient des données, pas du clic
+    expect(onExplore).toHaveBeenCalledWith('84')
+  })
+})
+
+describe('MapSection : métrique choisie', () => {
+  it("l'intitulé dit quelle grandeur donne la teinte", () => {
+    stubGeoFetch()
+    renderMap([region('84', 'Auvergne-Rhône-Alpes', 6000)], 'success', undefined, 'autonomie')
+
+    expect(screen.getByText(/teinte = autonomie/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Autonomie' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('remonte le changement de métrique', async () => {
+    stubGeoFetch()
+    const onMetricChange = vi.fn()
+    renderMap(
+      [region('84', 'Auvergne-Rhône-Alpes', 6000)],
+      'success',
+      undefined,
+      'consommation',
+      onMetricChange,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Solde' }))
+
+    expect(onMetricChange).toHaveBeenCalledWith('echanges')
   })
 })

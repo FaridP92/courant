@@ -5,11 +5,70 @@
  * dernier point national (ech_comm_*, négatif = la France exporte).
  */
 import type { NationalLatest, RegionalLatest } from '../../lib/api.ts'
-import { formatGigawatts } from '../../lib/format.ts'
+import { regionalAutonomy, regionalRenewableShare } from '../../lib/energy.ts'
+import { mapMetricOption, type MapMetric } from '../../lib/filters.ts'
+import { formatGigawatts, formatSignedGigawatts, formatWholePercent } from '../../lib/format.ts'
 import { accent, ink, surfaces } from '../../lib/palette.ts'
 
 export const REGIONS_MAP_NAME = 'regions-metropole'
 const IMPORT_COLOR = '#678c9f'
+/** Surface des fonds sans donnée : une métrique incalculable ne se déguise pas en zéro. */
+const NEUTRAL_AREA = '#12212a'
+
+interface MetricRender {
+  value: (region: RegionalLatest) => number | null
+  format: (value: number) => string
+  /** Le solde d'échanges a deux sens : la teinte porte le signe (cyan export, gris import),
+   * jamais le vert ou le rouge, réservés aux signaux Ecowatt et Tempo. */
+  signed: boolean
+}
+
+const METRIC_RENDER: Record<MapMetric, MetricRender> = {
+  consommation: {
+    value: (region) => region.consommation,
+    format: (value) => `${formatGigawatts(value)} GW`,
+    signed: false,
+  },
+  renouvelables: {
+    value: regionalRenewableShare,
+    format: (value) => `${formatWholePercent(value)} %`,
+    signed: false,
+  },
+  autonomie: {
+    value: regionalAutonomy,
+    format: (value) => `${formatWholePercent(value)} %`,
+    signed: false,
+  },
+  echanges: {
+    value: (region) => (region.ech_physiques === null ? null : -region.ech_physiques),
+    format: (value) => `${formatSignedGigawatts(value)} GW`,
+    signed: true,
+  },
+}
+
+/** Échelle ancrée sur le maximum observé, plancher à 1 : les parts (0 à 1) se lisent
+ * donc sur 100 %, les puissances en MW sur la région la plus forte. */
+function areaTint(value: number | null, anchor: number, signed: boolean): string {
+  if (value === null) return NEUTRAL_AREA
+  const intensity = Math.abs(value) / anchor
+  return signed && value < 0
+    ? `rgba(103, 140, 159, ${String(0.12 + intensity * 0.43)})`
+    : `rgba(46, 230, 255, ${String(0.1 + intensity * 0.45)})`
+}
+
+export function metricName(metric: MapMetric): string {
+  return mapMetricOption(metric).name
+}
+
+/** Description accessible : la métrique, puis sa valeur région par région. */
+export function mapAriaLabel(regions: readonly RegionalLatest[], metric: MapMetric): string {
+  const render = METRIC_RENDER[metric]
+  const values = regions.map((region) => {
+    const value = render.value(region)
+    return `${region.region_name} ${value === null ? 'non disponible' : render.format(value)}`
+  })
+  return `Carte de France : ${metricName(metric).toLowerCase()} par région (du plus clair au plus foncé) et flux d'échanges aux frontières. ${values.join(', ')}.`
+}
 
 /** Référentiel INSEE des régions métropolitaines : la jointure carte-données passe par le
  * code (stable), jamais par le libellé (un accent ou une apostrophe qui diverge entre le
@@ -83,23 +142,26 @@ export function buildMapOption(
   national: NationalLatest | null,
   selectedCode: string | null,
   reduceMotion: boolean,
+  metric: MapMetric = 'consommation',
 ): MapChartOption {
-  const maxConso = Math.max(1, ...regions.map((r) => r.consommation))
+  const render = METRIC_RENDER[metric]
+  const values = regions.map((r) => render.value(r))
+  const anchor = Math.max(1, ...values.filter((v): v is number => v !== null).map(Math.abs))
 
   // name = code INSEE : c'est la clé de jointure avec le fond de carte (nameProperty)
-  const regionData = regions.map((r) => ({
+  const regionData = regions.map((r, index) => ({
     name: r.region_code,
-    value: r.consommation,
+    value: values[index] ?? null,
     code: r.region_code,
     region_name: r.region_name,
     balance: r.ech_physiques === null ? null : -r.ech_physiques,
   }))
 
   // avec geoIndex, la teinte fiable passe par geo.regions (pas par itemStyle de série)
-  const geoRegions = regions.map((r) => ({
+  const geoRegions = regions.map((r, index) => ({
     name: r.region_code,
     itemStyle: {
-      areaColor: `rgba(46, 230, 255, ${String(0.1 + (r.consommation / maxConso) * 0.45)})`,
+      areaColor: areaTint(values[index] ?? null, anchor, render.signed),
       borderColor: r.region_code === selectedCode ? accent : surfaces.lineStrong,
       borderWidth: r.region_code === selectedCode ? 2 : 0.8,
     },
@@ -130,7 +192,7 @@ export function buildMapOption(
       roam: false,
       aspectScale: 0.8,
       // Corse et fonds sans donnée : surface neutre
-      itemStyle: { areaColor: '#12212a', borderColor: surfaces.lineStrong, borderWidth: 0.8 },
+      itemStyle: { areaColor: NEUTRAL_AREA, borderColor: surfaces.lineStrong, borderWidth: 0.8 },
       regions: geoRegions,
       emphasis: { disabled: true },
       select: { disabled: true },
@@ -144,25 +206,27 @@ export function buildMapOption(
     },
     series: [
       {
-        name: 'Consommation régionale',
+        name: metricName(metric),
         type: 'map',
         geoIndex: 0,
         data: regionData,
         tooltip: {
           formatter: (params: {
             name: string
-            data?: { value: number; balance: number | null; region_name: string }
+            data?: { value: number | null; balance: number | null; region_name: string }
           }) => {
             const d = params.data
             // params.name porte le code INSEE : on affiche toujours le libellé humain
             if (d === undefined) {
               return `${escapeHtml(REGION_NAMES[params.name] ?? params.name)} : données indisponibles`
             }
+            const measure = d.value === null ? 'n.d.' : render.format(d.value)
+            // le solde figure déjà dans la mesure quand c'est lui la métrique choisie
             const balance =
-              d.balance === null
+              metric === 'echanges' || d.balance === null
                 ? ''
                 : `<br/>${d.balance >= 0 ? 'exporte' : 'importe'} ${formatGigawatts(Math.abs(d.balance))} GW`
-            return `<b>${escapeHtml(d.region_name)}</b><br/>${formatGigawatts(d.value)} GW consommés${balance}`
+            return `<b>${escapeHtml(d.region_name)}</b><br/>${metricName(metric)} : ${measure}${balance}`
           },
         },
       },
