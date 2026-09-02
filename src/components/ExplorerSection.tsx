@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { MetropolePoint, NationalLatest, NationalRange, RegionalLatest } from '../lib/api.ts'
 import {
   nationalAutonomy,
@@ -60,14 +60,18 @@ export function ExplorerSection({
   national,
   territory,
   onTerritoryChange,
+  range,
+  onRangeChange,
 }: {
   regions: readonly RegionalLatest[]
   metropoles: readonly MetropolePoint[]
   national: NationalLatest | null
   territory: Territory
   onTerritoryChange: (territory: Territory) => void
+  /** Période partagée avec la colonne du temps : un seul critère pour toute la page. */
+  range: NationalRange
+  onRangeChange: (range: NationalRange) => void
 }) {
-  const [range, setRange] = useState<NationalRange>('24h')
   // les métropoles n'ont que 7 jours d'historique : 30 j retombe sur 7 j
   const effectiveRange = territory.kind === 'metropole' && range === '30d' ? '7d' : range
 
@@ -280,7 +284,7 @@ export function ExplorerSection({
           </select>
           <RangeSelector
             value={effectiveRange}
-            onChange={setRange}
+            onChange={onRangeChange}
             {...(territory.kind === 'metropole'
               ? {
                   disabled: {

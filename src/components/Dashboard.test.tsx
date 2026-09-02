@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NationalLatest, NationalPoint } from '../lib/api.ts'
 import { Dashboard } from './Dashboard.tsx'
@@ -82,6 +82,8 @@ function stubApi(handler: (url: string) => unknown) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // les filtres vivent dans l'URL : chaque test repart d'une page nue
+  window.history.replaceState(null, '', '/')
 })
 
 describe('Dashboard branché sur les vues publiques', () => {
@@ -187,5 +189,100 @@ describe('Dashboard branché sur les vues publiques', () => {
     expect(await screen.findByText('Données indisponibles')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
     expect(screen.queryByText('0,0')).not.toBeInTheDocument()
+  })
+})
+
+describe('Filtres du tableau de bord', () => {
+  // la colonne du temps et l'Explorateur portent chacun un sélecteur de période :
+  // les requêtes de période sont donc toujours cadrées sur une section
+  const timeColumn = () =>
+    within(screen.getByRole('region', { name: 'Consommation et mix de production dans le temps' }))
+
+  it("la période, les filières et la maturité voyagent dans l'URL", async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.click(timeColumn().getByRole('button', { name: '7 j' }))
+    expect(window.location.search).toBe('?range=7d')
+
+    fireEvent.click(screen.getByRole('button', { name: /^Hydraulique/ }))
+    expect(window.location.search).toContain('fuels=')
+    expect(window.location.search).not.toContain('hydraulique')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Consolidées' }))
+    expect(window.location.search).toContain('maturity=R,D')
+  })
+
+  it('une URL portant des critères rouvre exactement la même vue', async () => {
+    window.history.replaceState(null, '', '/?range=7d&fuels=nucleaire,eolien')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(timeColumn().getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(screen.getByRole('button', { name: /^Nucléaire/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it("la période choisie vaut aussi pour l'Explorateur : un seul critère, deux vues", async () => {
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.click(timeColumn().getByRole('button', { name: '30 j' }))
+
+    const explorer = within(screen.getByRole('region', { name: 'Explorateur par territoire' }))
+    expect(explorer.getByRole('button', { name: '30 j' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it("un critère qui écarte toute la série le dit, au lieu d'un graphe vide", async () => {
+    // la fixture est consolidée : ne garder que le temps réel ne laisse aucune mesure
+    window.history.replaceState(null, '', '/?maturity=R')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('Aucune mesure ne correspond aux critères choisis.'),
+    ).toBeInTheDocument()
+    // le graphe héro disparaît au profit du message ; l'Explorateur garde sa propre
+    // série, qui ne porte pas la maturité (vues régionales et métropoles)
+    expect(timeColumn().queryByRole('img', { name: /Courbe de consommation/ })).toBeNull()
+  })
+
+  it('revenir au défaut nettoie les critères et rétablit la vue', async () => {
+    window.history.replaceState(null, '', '/?range=7d&maturity=R')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Réinitialiser' }))
+
+    expect(window.location.search).toBe('')
+    expect(timeColumn().getByRole('button', { name: '24 h' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.queryByText('Aucune mesure ne correspond aux critères choisis.')).toBeNull()
+  })
+
+  it('le filtre de maturité dit combien de points il écarte', async () => {
+    const mixed: NationalPoint[] = points.map((point, index) => ({
+      ...point,
+      maturity: index === 0 ? 'R' : 'C',
+    }))
+    window.history.replaceState(null, '', '/?maturity=C')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : mixed))
+    renderDashboard()
+
+    expect(await screen.findByText('2 points sur 3')).toBeInTheDocument()
   })
 })

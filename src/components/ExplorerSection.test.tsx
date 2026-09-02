@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { afterEach } from 'vitest'
-import type { MetropolePoint, NationalLatest, RegionalLatest } from '../lib/api.ts'
+import type { MetropolePoint, NationalLatest, NationalRange, RegionalLatest } from '../lib/api.ts'
 import { FRANCE, type Territory } from '../lib/territory.ts'
 import { ExplorerSection } from './ExplorerSection.tsx'
 
@@ -117,6 +117,8 @@ function stubApi() {
 
 function Harness({ initial = FRANCE }: { initial?: Territory }) {
   const [territory, setTerritory] = useState<Territory>(initial)
+  // la période vit dans les filtres de la page : le harness joue ce rôle ici
+  const [range, setRange] = useState<NationalRange>('24h')
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   )
@@ -128,6 +130,8 @@ function Harness({ initial = FRANCE }: { initial?: Territory }) {
         national={national}
         territory={territory}
         onTerritoryChange={setTerritory}
+        range={range}
+        onRangeChange={setRange}
       />
     </QueryClientProvider>
   )

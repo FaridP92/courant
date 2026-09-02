@@ -221,7 +221,9 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(btn7d).toHaveAttribute('aria-pressed', 'false')
     await btn7d.click()
     await expect(btn7d).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByText(/7 jours en moyenne horaire/)).toBeVisible()
+    // la période est partagée : l'Explorateur affiche le même intitulé, on cadre donc
+    // l'attente sur la colonne du temps
+    await expect(timeColumn.getByText(/7 jours en moyenne horaire/)).toBeVisible()
 
     // légende du mix : masquer une filière (état initial vérifié, sinon un bouton
     // figé sur false passerait le test)
@@ -294,6 +296,56 @@ test.describe('Dashboard avec données mockées', () => {
     await page.keyboard.press('Enter')
     await page.getByRole('button', { name: /Creuser dans l'Explorateur/ }).click()
     await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test("les critères vivent dans l'URL : partage par lien, retour arrière, remise à zéro", async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const timeColumn = page.locator(
+      'section[aria-label="Consommation et mix de production dans le temps"]',
+    )
+    await timeColumn.getByRole('button', { name: '7 j' }).click()
+    await page.getByRole('button', { name: /^Hydraulique/ }).click()
+    await expect(page).toHaveURL(/range=7d/)
+    await expect(page).toHaveURL(/fuels=/)
+
+    // un rechargement (donc un lien partagé) rouvre exactement la même vue
+    await page.reload()
+    await expect(timeColumn.getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    // la période vaut pour toute la page, Explorateur compris
+    await expect(page.locator('#explorer').getByRole('button', { name: '7 j' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // le retour arrière du navigateur défait le dernier critère
+    await page.goBack()
+    await expect(page.getByRole('button', { name: /^Hydraulique/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // la fixture est en temps réel : écarter cette maturité ne laisse aucune mesure,
+    // et le tableau de bord le dit au lieu d'afficher un graphe vide
+    await page.getByRole('button', { name: 'Temps réel' }).click()
+    await expect(page.getByText('Aucune mesure ne correspond aux critères choisis.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Réinitialiser' }).click()
+    await expect(page).toHaveURL(/:4173\/$/)
+    await expect(timeColumn.getByRole('button', { name: '24 h' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 })
 
