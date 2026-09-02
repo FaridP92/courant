@@ -347,6 +347,37 @@ test.describe('Dashboard avec données mockées', () => {
       'true',
     )
   })
+
+  test('territoire, métrique de la carte et seuil CO2 voyagent aussi dans le lien', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/?territory=region:84&map=autonomie&co2=30')
+
+    // territoire : la série et le libellé viennent des données, pas du lien
+    const explorer = page.locator('#explorer')
+    await expect(explorer.getByText('Consommation · Auvergne-Rhône-Alpes')).toBeVisible()
+    await expect(explorer.getByLabel('Territoire')).toHaveValue('region:84')
+
+    // carte : la teinte suit la métrique demandée
+    await expect(page.getByText(/teinte = autonomie/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Autonomie' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // seuil CO2 : la fixture est à 32 g/kWh, les 96 pas dépassent le palier 30
+    await expect(
+      page.getByText('zones ombrées : 96 pas au-dessus de 30 g/kWh, pointe 32'),
+    ).toBeVisible()
+
+    // et chaque changement repart dans l'URL
+    await page.getByRole('button', { name: 'Solde' }).click()
+    await expect(page).toHaveURL(/map=echanges/)
+    await explorer.getByLabel('Territoire').selectOption('region:53')
+    await expect(page).toHaveURL(/territory=region:53/)
+    await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
 })
 
 test.describe('Honnêteté quand la source est coupée', () => {

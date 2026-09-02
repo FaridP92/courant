@@ -70,4 +70,5 @@ critères sélectionnables sans multiplier les états dispersés.
 - Reste à faire, hors périmètre de cette décision : le territoire dans l'URL (il
   demande de résoudre le nom du territoire à partir des données chargées), la métrique
   de la carte, et les seuils (CO2, écart aux prévisions), qui mettront en évidence
-  plutôt qu'ils ne masqueront.
+  plutôt qu'ils ne masqueront. Ces trois extensions ont été traitées depuis, avec les
+  questions qu'elles soulevaient : voir ADR-0007.
