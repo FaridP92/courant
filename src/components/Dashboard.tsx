@@ -28,7 +28,7 @@ import {
 } from '../hooks/useNationalData.ts'
 import { nationalExportRows } from '../lib/exports.ts'
 import { parisDayIso } from '../lib/signals.ts'
-import { exceedanceBands } from '../lib/stats.ts'
+import { heroHighlights, highlightSummary } from '../lib/highlights.ts'
 import { useFilters } from '../hooks/useFilters.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import {
@@ -197,29 +197,34 @@ function TimeColumn({
   const scale = heroScaleBoundsGw(points)
   // mémoïsées : un simple re-rendu React ne doit pas déclencher setOption
   // (qui, même en fusion, coûte un layout ECharts)
-  const heroOption = useMemo(
-    () => buildHeroChartOption(points, new Date(), filters.co2Threshold),
-    [points, filters.co2Threshold],
-  )
-  // même calcul que les zones du graphe : la légende dit ce qu'elles couvrent
-  const carbonBands = useMemo(
+  // une seule fois : le graphe ombre ces plages, la légende les décrit
+  const highlights = useMemo(
     () =>
-      filters.co2Threshold === null
-        ? []
-        : exceedanceBands(
-            points.map((p) => ({ ts: p.ts, value: p.taux_co2 })),
-            filters.co2Threshold,
-          ),
-    [points, filters.co2Threshold],
+      heroHighlights(points, {
+        co2: filters.co2Threshold,
+        // le seuil se choisit en pourcentage, il se calcule en fraction
+        deviation: filters.deviationThreshold === null ? null : filters.deviationThreshold / 100,
+      }),
+    [points, filters.co2Threshold, filters.deviationThreshold],
   )
-  const carbonSteps = carbonBands.reduce((total, band) => total + band.count, 0)
-  const carbonPeak = carbonBands.reduce((peak, band) => Math.max(peak, band.peak), 0)
+  const heroOption = useMemo(
+    () => buildHeroChartOption(points, new Date(), highlights),
+    [points, highlights],
+  )
+  const carbon = highlightSummary(highlights.co2)
+  const drift = highlightSummary(highlights.deviation)
   const carbonNote =
     filters.co2Threshold === null
       ? null
-      : carbonSteps === 0
+      : carbon.steps === 0
         ? `aucun pas au-dessus de ${String(filters.co2Threshold)} g/kWh sur la période`
-        : `zones ombrées : ${String(carbonSteps)} pas au-dessus de ${String(filters.co2Threshold)} g/kWh, pointe ${String(carbonPeak)}`
+        : `CO2 : ${String(carbon.steps)} pas au-dessus de ${String(filters.co2Threshold)} g/kWh, pointe ${String(carbon.peak)}`
+  const driftNote =
+    filters.deviationThreshold === null
+      ? null
+      : drift.steps === 0
+        ? `aucun écart au J-1 au-dessus de ${String(filters.deviationThreshold)} %`
+        : `écart au J-1 : ${String(drift.steps)} pas au-dessus de ${String(filters.deviationThreshold)} %, pointe ${formatWholePercent(drift.peak)} %`
   const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
   const exportRows = nationalExportRows(points)
   // l'export livre exactement la vue filtrée : le nom du fichier porte donc le critère
@@ -278,7 +283,13 @@ function TimeColumn({
               <EChart
                 option={heroOption}
                 group={TIME_COLUMN_GROUP}
-                ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.${carbonNote === null ? '' : ` Mise en évidence : ${carbonNote}.`}`}
+                ariaLabel={`Courbe de consommation (${RANGE_HINTS[range]}), dernier point complet ${formatGigawatts(latest.consommation)} gigawatts à ${formatParisClock(latest.ts)}, comparée aux prévisions RTE. Zoom possible à la molette.${[
+                  carbonNote,
+                  driftNote,
+                ]
+                  .filter((note) => note !== null)
+                  .map((note) => ` Mise en évidence : ${note}.`)
+                  .join('')}`}
                 className="h-[240px] w-full"
               />
             </ChartSlot>
@@ -300,6 +311,12 @@ function TimeColumn({
                 <span className="flex items-center gap-1.5 text-[10.5px] text-ink-40">
                   <i className="h-2.5 w-3.5 rounded-[2px] bg-ink-40/25" />
                   {carbonNote}
+                </span>
+              )}
+              {driftNote !== null && (
+                <span className="flex items-center gap-1.5 text-[10.5px] text-ink-40">
+                  <i className="h-2.5 w-3.5 rounded-[2px] bg-accent/15" />
+                  {driftNote}
                 </span>
               )}
             </p>

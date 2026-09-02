@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   exchangeBalanceMw,
+  forecastDeviation,
   nationalAutonomy,
   nuclearShare,
   productionTotalMw,
@@ -115,5 +116,23 @@ describe('nationalAutonomy', () => {
     } as unknown as NationalPoint & { consommation: number }
     expect(nationalAutonomy(point)).toBeCloseTo(1)
     expect(nationalAutonomy({ ...point, consommation: 0 })).toBeNull()
+  })
+})
+
+describe('forecastDeviation', () => {
+  it("mesure l'écart au J-1 en valeur absolue, quel qu'en soit le sens", () => {
+    // 68828 réalisés pour 65000 prévus : 5,9 % au-dessus
+    expect(forecastDeviation({ ...point, prevision_j1: 65000 })).toBeCloseTo(0.0589, 4)
+    // sous-consommation : l'écart reste positif, c'est son ampleur qui compte
+    expect(forecastDeviation({ ...point, consommation: 60000, prevision_j1: 65000 })).toBeCloseTo(
+      0.0769,
+      4,
+    )
+  })
+
+  it('rend null quand la comparaison est impossible, jamais zéro', () => {
+    expect(forecastDeviation({ ...point, prevision_j1: null })).toBeNull()
+    expect(forecastDeviation({ ...point, consommation: null })).toBeNull()
+    expect(forecastDeviation({ ...point, prevision_j1: 0 })).toBeNull()
   })
 })

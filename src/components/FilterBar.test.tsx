@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_FILTERS, type Filters } from '../lib/filters.ts'
 import { FilterBar } from './FilterBar.tsx'
@@ -85,27 +85,33 @@ describe('FilterBar', () => {
   })
 })
 
-describe('FilterBar : seuil CO2', () => {
-  it('propose les paliers, aucun seuil par défaut', () => {
+describe('FilterBar : seuils de mise en évidence', () => {
+  const co2 = () => within(screen.getByRole('group', { name: "Seuil d'intensité CO2" }))
+  const drift = () => within(screen.getByRole('group', { name: "Seuil d'écart au programme J-1" }))
+
+  it('propose deux jeux de paliers, aucun seuil par défaut', () => {
     setup()
 
-    expect(screen.getByRole('group', { name: "Seuil d'intensité CO2" })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'aucun' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: '50' })).toHaveAttribute('aria-pressed', 'false')
+    expect(co2().getByRole('button', { name: 'aucun' })).toHaveAttribute('aria-pressed', 'true')
+    expect(co2().getByRole('button', { name: '50' })).toHaveAttribute('aria-pressed', 'false')
+    expect(drift().getByRole('button', { name: 'aucun' })).toHaveAttribute('aria-pressed', 'true')
+    expect(drift().getByRole('button', { name: '10' })).toBeInTheDocument()
   })
 
-  it('poser un palier remonte le seuil en g/kWh', () => {
+  it('poser un palier remonte le seuil dans son unité', () => {
     const { onChange } = setup()
 
-    fireEvent.click(screen.getByRole('button', { name: '50' }))
-
+    fireEvent.click(co2().getByRole('button', { name: '50' }))
     expect(onChange).toHaveBeenCalledWith({ co2Threshold: 50 })
+
+    fireEvent.click(drift().getByRole('button', { name: '5' }))
+    expect(onChange).toHaveBeenCalledWith({ deviationThreshold: 5 })
   })
 
-  it('revenir à aucun retire le seuil', () => {
-    const { onChange } = setup({ co2Threshold: 50 })
+  it("revenir à aucun retire le seuil, sans toucher à l'autre", () => {
+    const { onChange } = setup({ co2Threshold: 50, deviationThreshold: 5 })
 
-    fireEvent.click(screen.getByRole('button', { name: 'aucun' }))
+    fireEvent.click(co2().getByRole('button', { name: 'aucun' }))
 
     expect(onChange).toHaveBeenCalledWith({ co2Threshold: null })
   })

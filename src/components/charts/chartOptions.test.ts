@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NationalPoint } from '../../lib/api.ts'
+import { heroHighlights } from '../../lib/highlights.ts'
 import { FUELS } from '../../lib/palette.ts'
 import {
   buildHeroChartOption,
@@ -140,7 +141,12 @@ describe('buildMixChartOption', () => {
   })
 })
 
-describe('buildHeroChartOption : seuil CO2 en mise en évidence', () => {
+describe('buildHeroChartOption : seuils en mise en évidence', () => {
+  const carbon =
+    (co2: number | null, deviation: number | null = null) =>
+    (points: readonly NationalPoint[]) =>
+      heroHighlights(points, { co2, deviation })
+
   const carbonSeries: NationalPoint[] = [
     point('2026-08-29T10:00:00+00:00', { taux_co2: 30 }),
     point('2026-08-29T10:15:00+00:00', { taux_co2: 62 }),
@@ -156,7 +162,11 @@ describe('buildHeroChartOption : seuil CO2 en mise en évidence', () => {
   })
 
   it('avec un seuil, ombre les plages dépassées, bornées par des mesures réelles', () => {
-    const option = buildHeroChartOption(carbonSeries, new Date('2026-08-29T10:45:00+00:00'), 50)
+    const option = buildHeroChartOption(
+      carbonSeries,
+      new Date('2026-08-29T10:45:00+00:00'),
+      carbon(50)(carbonSeries),
+    )
     const area = markAreaOf(option)
 
     expect(area?.data).toHaveLength(1)
@@ -165,8 +175,36 @@ describe('buildHeroChartOption : seuil CO2 en mise en évidence', () => {
   })
 
   it('les points restent tous là : la mise en évidence ne retire aucune mesure', () => {
-    const option = buildHeroChartOption(carbonSeries, new Date('2026-08-29T10:45:00+00:00'), 50)
+    const option = buildHeroChartOption(
+      carbonSeries,
+      new Date('2026-08-29T10:45:00+00:00'),
+      carbon(50)(carbonSeries),
+    )
 
     expect((option.series[0] as { data: unknown[] }).data).toHaveLength(carbonSeries.length)
+  })
+
+  it("l'écart au J-1 s'ombre sur sa propre série, sans effacer celui du carbone", () => {
+    const drifting: NationalPoint[] = [
+      point('2026-08-29T10:00:00+00:00', { consommation: 60000, prevision_j1: 60000 }),
+      // 10 % au-dessus du programme
+      point('2026-08-29T10:15:00+00:00', {
+        consommation: 66000,
+        prevision_j1: 60000,
+        taux_co2: 62,
+      }),
+      point('2026-08-29T10:30:00+00:00', { consommation: 60000, prevision_j1: 60000 }),
+    ]
+    const option = buildHeroChartOption(
+      drifting,
+      new Date('2026-08-29T10:30:00+00:00'),
+      heroHighlights(drifting, { co2: 50, deviation: 0.05 }),
+    )
+
+    const realized = option.series[0] as { markArea?: { data: unknown[] } }
+    const dayBefore = option.series[2] as { name: string; markArea?: { data: unknown[] } }
+    expect(realized.markArea?.data).toHaveLength(1)
+    expect(dayBefore.name).toBe('Prévision J-1')
+    expect(dayBefore.markArea?.data).toHaveLength(1)
   })
 })

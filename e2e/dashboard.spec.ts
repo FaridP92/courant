@@ -367,9 +367,7 @@ test.describe('Dashboard avec données mockées', () => {
     )
 
     // seuil CO2 : la fixture est à 32 g/kWh, les 96 pas dépassent le palier 30
-    await expect(
-      page.getByText('zones ombrées : 96 pas au-dessus de 30 g/kWh, pointe 32'),
-    ).toBeVisible()
+    await expect(page.getByText('CO2 : 96 pas au-dessus de 30 g/kWh, pointe 32')).toBeVisible()
 
     // et chaque changement repart dans l'URL
     await page.getByRole('button', { name: 'Solde' }).click()

@@ -377,7 +377,7 @@ describe('Seuil CO2 : mise en évidence, jamais masquage', () => {
     renderDashboard()
 
     expect(
-      await screen.findByText('zones ombrées : 3 pas au-dessus de 30 g/kWh, pointe 32'),
+      await screen.findByText('CO2 : 3 pas au-dessus de 30 g/kWh, pointe 32'),
     ).toBeInTheDocument()
     expect(timeColumn().getByRole('img', { name: /Courbe de consommation/ })).toBeInTheDocument()
   })
@@ -390,5 +390,27 @@ describe('Seuil CO2 : mise en évidence, jamais masquage', () => {
     expect(
       await screen.findByText('aucun pas au-dessus de 80 g/kWh sur la période'),
     ).toBeInTheDocument()
+  })
+
+  it("l'écart au programme J-1 a son propre seuil et sa propre légende", async () => {
+    // fixture : 60100, 60800 et 61200 réalisés pour 58800 prévus, soit 2,2 à 4,1 %
+    window.history.replaceState(null, '', '/?ecart=2')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('écart au J-1 : 3 pas au-dessus de 2 %, pointe 4 %'),
+    ).toBeInTheDocument()
+  })
+
+  it('les deux seuils cohabitent, chacun avec sa zone et sa ligne de légende', async () => {
+    window.history.replaceState(null, '', '/?co2=30&ecart=10')
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+
+    expect(
+      await screen.findByText('CO2 : 3 pas au-dessus de 30 g/kWh, pointe 32'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('aucun écart au J-1 au-dessus de 10 %')).toBeInTheDocument()
   })
 })

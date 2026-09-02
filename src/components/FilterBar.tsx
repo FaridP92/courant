@@ -1,5 +1,6 @@
 import {
   CO2_THRESHOLDS,
+  DEVIATION_THRESHOLDS,
   isDefaultFilters,
   MATURITIES,
   toggleWithFloor,
@@ -23,18 +24,37 @@ const MATURITY_FLOOR = 'Au moins une maturité doit rester retenue'
 const NO_THRESHOLD = 'off'
 
 /** Le seuil met en évidence, il ne masque pas : « aucun » est un palier comme les autres. */
-const CO2_OPTIONS: readonly SegmentedOption<string>[] = [
-  {
-    value: NO_THRESHOLD,
-    label: 'aucun',
-    title: "Aucune mise en évidence de l'intensité carbone",
-  },
-  ...CO2_THRESHOLDS.map((threshold) => ({
-    value: String(threshold),
-    label: String(threshold),
-    title: `Met en évidence les pas au-dessus de ${String(threshold)} g/kWh`,
-  })),
-]
+function thresholdOptions(
+  thresholds: readonly number[],
+  unit: string,
+  none: string,
+): readonly SegmentedOption<string>[] {
+  return [
+    { value: NO_THRESHOLD, label: 'aucun', title: none },
+    ...thresholds.map((threshold) => ({
+      value: String(threshold),
+      label: String(threshold),
+      title: `Met en évidence les pas au-dessus de ${String(threshold)} ${unit}`,
+    })),
+  ]
+}
+
+const CO2_OPTIONS = thresholdOptions(
+  CO2_THRESHOLDS,
+  'g/kWh',
+  "Aucune mise en évidence de l'intensité carbone",
+)
+const DEVIATION_OPTIONS = thresholdOptions(
+  DEVIATION_THRESHOLDS,
+  '%',
+  "Aucune mise en évidence de l'écart au programme J-1",
+)
+
+const thresholdValue = (threshold: number | null): string =>
+  threshold === null ? NO_THRESHOLD : String(threshold)
+
+const pickThreshold = (thresholds: readonly number[], value: string): number | null =>
+  thresholds.find((threshold) => String(threshold) === value) ?? null
 
 export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBarProps) {
   const maturityFiltered = filters.maturity.size < MATURITIES.length
@@ -74,11 +94,22 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
         <SegmentedControl
           label="Seuil d'intensité CO2"
           options={CO2_OPTIONS}
-          value={filters.co2Threshold === null ? NO_THRESHOLD : String(filters.co2Threshold)}
+          value={thresholdValue(filters.co2Threshold)}
           onChange={(value) => {
-            onChange({
-              co2Threshold: CO2_THRESHOLDS.find((t) => String(t) === value) ?? null,
-            })
+            onChange({ co2Threshold: pickThreshold(CO2_THRESHOLDS, value) })
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="font-data text-[10.5px] tracking-[0.08em] text-ink-40 uppercase">
+          Écart J-1
+        </span>
+        <SegmentedControl
+          label="Seuil d'écart au programme J-1"
+          options={DEVIATION_OPTIONS}
+          value={thresholdValue(filters.deviationThreshold)}
+          onChange={(value) => {
+            onChange({ deviationThreshold: pickThreshold(DEVIATION_THRESHOLDS, value) })
           }}
         />
       </div>

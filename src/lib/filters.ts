@@ -27,6 +27,9 @@ export interface Filters {
   /** Seuil d'intensité carbone en g/kWh : met en évidence les pas au-dessus, sans
    * jamais les masquer (une pointe carbone reste une mesure, pas un défaut). */
   readonly co2Threshold: number | null
+  /** Seuil d'écart au programme J-1, en points de pourcentage. Même principe :
+   * mise en évidence des pas où réalisé et prévision divergent. */
+  readonly deviationThreshold: number | null
 }
 
 const RANGES: readonly NationalRange[] = ['24h', '7d', '30d']
@@ -103,6 +106,9 @@ const MATURITY_VALUES: readonly Maturity[] = MATURITIES.map((option) => option.v
 /** Paliers proposés, cadrés sur l'intensité carbone française observée (g/kWh). */
 export const CO2_THRESHOLDS: readonly number[] = [30, 50, 80]
 
+/** Paliers d'écart au programme J-1, en pourcentage. */
+export const DEVIATION_THRESHOLDS: readonly number[] = [2, 5, 10]
+
 export const DEFAULT_FILTERS: Filters = {
   range: '24h',
   mapMetric: 'consommation',
@@ -110,6 +116,7 @@ export const DEFAULT_FILTERS: Filters = {
   fuels: new Set(FUEL_KEYS),
   maturity: new Set(MATURITY_VALUES),
   co2Threshold: null,
+  deviationThreshold: null,
 }
 
 /** Lecture tolérante : une valeur inconnue est ignorée, un ensemble vide retombe sur
@@ -136,6 +143,8 @@ export function parseFilters(search: string): Filters {
     fuels: parseSet(params.get('fuels'), FUEL_KEYS, DEFAULT_FILTERS.fuels),
     maturity: parseSet(params.get('maturity'), MATURITY_VALUES, DEFAULT_FILTERS.maturity),
     co2Threshold: CO2_THRESHOLDS.find((value) => String(value) === params.get('co2')) ?? null,
+    deviationThreshold:
+      DEVIATION_THRESHOLDS.find((value) => String(value) === params.get('ecart')) ?? null,
   }
 }
 
@@ -161,6 +170,7 @@ export function serializeFilters(filters: Filters): string {
   const maturity = serializeSet(filters.maturity, MATURITY_VALUES)
   if (maturity !== null) parts.push(`maturity=${maturity}`)
   if (filters.co2Threshold !== null) parts.push(`co2=${String(filters.co2Threshold)}`)
+  if (filters.deviationThreshold !== null) parts.push(`ecart=${String(filters.deviationThreshold)}`)
   return parts.join('&')
 }
 
