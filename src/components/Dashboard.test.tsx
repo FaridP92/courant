@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { NationalLatest, NationalPoint } from '../lib/api.ts'
+import type { NationalLatest, NationalPoint, RegionalLatest } from '../lib/api.ts'
 import { Dashboard } from './Dashboard.tsx'
 
 // ECharts a besoin d'un vrai canvas : en jsdom on le remplace par un bloc inerte,
@@ -284,5 +284,84 @@ describe('Filtres du tableau de bord', () => {
     renderDashboard()
 
     expect(await screen.findByText('2 points sur 3')).toBeInTheDocument()
+  })
+})
+
+describe("Territoire porté par l'URL", () => {
+  const regionRow: RegionalLatest = {
+    region_code: '84',
+    region_name: 'Auvergne-Rhône-Alpes',
+    ts: latest.ts,
+    maturity: 'C',
+    consommation: 6000,
+    thermique: 100,
+    nucleaire: 3000,
+    eolien: 400,
+    solaire: 100,
+    hydraulique: 300,
+    pompage: -50,
+    bioenergies: 60,
+    ech_physiques: -500,
+  }
+
+  const explorer = () => within(screen.getByRole('region', { name: 'Explorateur par territoire' }))
+
+  function stubWithRegions() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              url.includes('v_national_latest')
+                ? [latest]
+                : url.includes('v_regional_latest')
+                  ? [regionRow]
+                  : url.includes('v_metropoles') ||
+                      url.includes('v_ecowatt') ||
+                      url.includes('v_tempo') ||
+                      url.includes('v_brief')
+                    ? []
+                    : points,
+            ),
+        }),
+      ),
+    )
+  }
+
+  it("changer de territoire écrit le critère dans l'URL", async () => {
+    stubWithRegions()
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    fireEvent.change(await explorer().findByLabelText('Territoire'), {
+      target: { value: 'region:84' },
+    })
+
+    expect(window.location.search).toBe('?territory=region:84')
+    expect(await explorer().findByText('Consommation · Auvergne-Rhône-Alpes')).toBeInTheDocument()
+  })
+
+  it('un lien vers un territoire rouvre ce territoire, libellé résolu depuis les données', async () => {
+    window.history.replaceState(null, '', '/?territory=region:84')
+    stubWithRegions()
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(await explorer().findByText('Consommation · Auvergne-Rhône-Alpes')).toBeInTheDocument()
+    expect(explorer().getByLabelText('Territoire')).toHaveValue('region:84')
+  })
+
+  it('libellés pas encore chargés : le code fait foi, jamais un autre territoire', async () => {
+    window.history.replaceState(null, '', '/?territory=region:84')
+    // v_regional_latest ne répond rien : aucune liste de libellés
+    stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
+    renderDashboard()
+    await screen.findAllByText('61,2')
+
+    expect(await explorer().findByText('Consommation · Région 84')).toBeInTheDocument()
+    expect(explorer().getByLabelText('Territoire')).toHaveValue('region:84')
   })
 })

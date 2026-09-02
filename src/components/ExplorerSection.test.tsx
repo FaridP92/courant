@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { afterEach } from 'vitest'
 import type { MetropolePoint, NationalLatest, NationalRange, RegionalLatest } from '../lib/api.ts'
-import { FRANCE, type Territory } from '../lib/territory.ts'
+import { FRANCE_REF, type TerritoryRef } from '../lib/territory.ts'
 import { ExplorerSection } from './ExplorerSection.tsx'
 
 vi.mock('./charts/LazyEChart.tsx', () => ({
@@ -115,8 +115,8 @@ function stubApi() {
   )
 }
 
-function Harness({ initial = FRANCE }: { initial?: Territory }) {
-  const [territory, setTerritory] = useState<Territory>(initial)
+function Harness({ initial = FRANCE_REF }: { initial?: TerritoryRef }) {
+  const [territory, setTerritory] = useState<TerritoryRef>(initial)
   // la période vit dans les filtres de la page : le harness joue ce rôle ici
   const [range, setRange] = useState<NationalRange>('24h')
   const [client] = useState(
@@ -169,9 +169,7 @@ describe('ExplorerSection', () => {
 
   it('métropole : consommation seule, dit pourquoi les jauges manquent, 30 j désactivé', async () => {
     stubApi()
-    render(
-      <Harness initial={{ kind: 'metropole', code: '200046977', name: 'Métropole de Lyon' }} />,
-    )
+    render(<Harness initial={{ kind: 'metropole', code: '200046977' }} />)
 
     expect(
       await screen.findByText(/Production non publiée à l'échelle des métropoles/),
@@ -185,7 +183,7 @@ describe('ExplorerSection', () => {
       'fetch',
       vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) })),
     )
-    render(<Harness initial={{ kind: 'region', code: '84', name: 'Auvergne-Rhône-Alpes' }} />)
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
 
     expect(
       await screen.findByText('Série indisponible pour ce territoire sur cette période.'),
@@ -203,7 +201,7 @@ describe('ExplorerSection', () => {
         }),
       ),
     )
-    render(<Harness initial={{ kind: 'region', code: '84', name: 'Auvergne-Rhône-Alpes' }} />)
+    render(<Harness initial={{ kind: 'region', code: '84' }} />)
 
     expect(
       await screen.findByText('Série indisponible pour ce territoire sur cette période.'),

@@ -30,7 +30,7 @@ const region = (code: string, name: string, consommation: number): RegionalLates
 function renderMap(
   regions: readonly RegionalLatest[],
   regionsStatus: 'pending' | 'error' | 'success',
-  onExploreRegion?: (code: string, name: string) => void,
+  onExploreRegion?: (code: string) => void,
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -106,6 +106,7 @@ describe('MapSection : sélection au clavier', () => {
 
     await user.click(screen.getByRole('button', { name: 'Auvergne-Rhône-Alpes' }))
     await user.click(screen.getByRole('button', { name: /Creuser dans l'Explorateur/ }))
-    expect(onExplore).toHaveBeenCalledWith('84', 'Auvergne-Rhône-Alpes')
+    // le pont ne transmet que le code : le libellé vient des données, pas du clic
+    expect(onExplore).toHaveBeenCalledWith('84')
   })
 })

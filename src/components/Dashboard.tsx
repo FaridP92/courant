@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { NationalLatest, NationalPoint, NationalRange } from '../lib/api.ts'
 import {
   applyFilters,
@@ -27,7 +27,6 @@ import {
   useTempoData,
 } from '../hooks/useNationalData.ts'
 import { parisDayIso } from '../lib/signals.ts'
-import { FRANCE, type Territory } from '../lib/territory.ts'
 import { useFilters } from '../hooks/useFilters.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import {
@@ -397,11 +396,10 @@ export function Dashboard() {
   const ecowattQuery = useEcowattData()
   const tempoQuery = useTempoData()
   const briefQuery = useBriefData()
-  const [explorerTerritory, setExplorerTerritory] = useState<Territory>(FRANCE)
   const reduceMotion = usePrefersReducedMotion()
 
-  const exploreRegion = (code: string, name: string) => {
-    setExplorerTerritory({ kind: 'region', code, name })
+  const exploreRegion = (code: string) => {
+    setFilters({ territory: { kind: 'region', code } })
     const explorer = document.getElementById('explorer')
     if (explorer !== null) {
       // le focus suit la navigation (clavier et lecteurs d'écran), le défilement
@@ -484,8 +482,10 @@ export function Dashboard() {
               regions={regionalQuery.data ?? []}
               metropoles={metropolesQuery.data ?? []}
               national={latest}
-              territory={explorerTerritory}
-              onTerritoryChange={setExplorerTerritory}
+              territory={filters.territory}
+              onTerritoryChange={(territory) => {
+                setFilters({ territory })
+              }}
               range={filters.range}
               onRangeChange={(range) => {
                 setFilters({ range })

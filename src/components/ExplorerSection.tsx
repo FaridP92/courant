@@ -16,7 +16,13 @@ import {
 } from '../lib/format.ts'
 import { formatDayShort, parisDayIso } from '../lib/signals.ts'
 import { seriesStats, trimTrailingGaps, windowFromLast } from '../lib/stats.ts'
-import { FRANCE, territoryKey, territoryLabel, type Territory } from '../lib/territory.ts'
+import {
+  parseTerritoryRef,
+  resolveTerritory,
+  territoryKey,
+  territoryLabel,
+  type TerritoryRef,
+} from '../lib/territory.ts'
 import {
   useMetropoleSeries,
   useNationalSeries,
@@ -66,8 +72,9 @@ export function ExplorerSection({
   regions: readonly RegionalLatest[]
   metropoles: readonly MetropolePoint[]
   national: NationalLatest | null
-  territory: Territory
-  onTerritoryChange: (territory: Territory) => void
+  /** Territoire demandé, par code : le libellé est résolu ici, depuis les données. */
+  territory: TerritoryRef
+  onTerritoryChange: (territory: TerritoryRef) => void
   /** Période partagée avec la colonne du temps : un seul critère pour toute la page. */
   range: NationalRange
   onRangeChange: (range: NationalRange) => void
@@ -192,25 +199,21 @@ export function ExplorerSection({
     [regions],
   )
 
+  // le libellé vient des listes chargées ; tant qu'elles arrivent, le code fait foi
+  const resolved = useMemo(
+    () => resolveTerritory(territory, regionOptions, metroOptions),
+    [territory, regionOptions, metroOptions],
+  )
+
   const handleTerritoryValue = (value: string) => {
-    if (value === 'france') {
-      onTerritoryChange(FRANCE)
-      return
-    }
-    const [kind, code] = value.split(':')
-    if (kind === 'region') {
-      const match = regionOptions.find((r) => r.code === code)
-      if (match !== undefined) onTerritoryChange({ kind: 'region', ...match })
-    } else if (kind === 'metropole') {
-      const match = metroOptions.find((m) => m.code === code)
-      if (match !== undefined) onTerritoryChange({ kind: 'metropole', ...match })
-    }
+    const ref = parseTerritoryRef(value)
+    if (ref !== null) onTerritoryChange(ref)
   }
 
   const consoOption = useMemo(() => buildTerritoryConsoOption(points), [points])
   const mixOption = useMemo(() => buildRegionalMixOption(regionalPoints), [regionalPoints])
 
-  const label = territoryLabel(territory)
+  const label = territoryLabel(resolved)
   const exportRows =
     territory.kind === 'region'
       ? regionalPoints.map((p) => ({
@@ -262,7 +265,7 @@ export function ExplorerSection({
               {/* le territoire courant reste sélectionnable même si la liste ne le porte plus */}
               {territory.kind === 'region' &&
                 !regionOptions.some((r) => r.code === territory.code) && (
-                  <option value={territoryKey(territory)}>{territory.name}</option>
+                  <option value={territoryKey(territory)}>{label}</option>
                 )}
               {regionOptions.map((r) => (
                 <option key={r.code} value={`region:${r.code}`}>
@@ -273,7 +276,7 @@ export function ExplorerSection({
             <optgroup label="Métropoles">
               {territory.kind === 'metropole' &&
                 !metroOptions.some((m) => m.code === territory.code) && (
-                  <option value={territoryKey(territory)}>{territory.name}</option>
+                  <option value={territoryKey(territory)}>{label}</option>
                 )}
               {metroOptions.map((m) => (
                 <option key={m.code} value={`metropole:${m.code}`}>

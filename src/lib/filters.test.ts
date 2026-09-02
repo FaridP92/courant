@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NationalPoint } from './api.ts'
+import { FRANCE_REF } from './territory.ts'
 import {
   applyFilters,
   DEFAULT_FILTERS,
@@ -34,6 +35,19 @@ describe('parseFilters', () => {
   it('sans paramètre, rend les filtres par défaut', () => {
     expect(parseFilters('')).toEqual(DEFAULT_FILTERS)
     expect(parseFilters('?')).toEqual(DEFAULT_FILTERS)
+  })
+
+  it('lit le territoire demandé', () => {
+    expect(parseFilters('?territory=region:84').territory).toEqual({ kind: 'region', code: '84' })
+    expect(parseFilters('?territory=metropole:200046977').territory).toEqual({
+      kind: 'metropole',
+      code: '200046977',
+    })
+  })
+
+  it('un territoire illisible retombe sur la France, sans lever', () => {
+    expect(parseFilters('?territory=departement:75').territory).toEqual(FRANCE_REF)
+    expect(parseFilters('?territory=').territory).toEqual(FRANCE_REF)
   })
 
   it('lit la période, les filières et la maturité', () => {
@@ -81,9 +95,17 @@ describe('serializeFilters', () => {
     expect(isDefaultFilters(filters)).toBe(false)
   })
 
+  it('écrit le territoire quand il quitte la France entière', () => {
+    expect(
+      serializeFilters({ ...DEFAULT_FILTERS, territory: { kind: 'region', code: '84' } }),
+    ).toBe('territory=region:84')
+    expect(serializeFilters({ ...DEFAULT_FILTERS, territory: FRANCE_REF })).toBe('')
+  })
+
   it("fait l'aller-retour sans perte", () => {
     const filters: Filters = {
       range: '30d',
+      territory: { kind: 'metropole', code: '200046977' },
       fuels: new Set(['nucleaire', 'solaire']),
       maturity: new Set(['R']),
     }

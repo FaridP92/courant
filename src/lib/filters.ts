@@ -8,6 +8,7 @@
  */
 import type { NationalPoint, NationalRange } from './api.ts'
 import { FUELS, type FuelSeries } from './palette.ts'
+import { FRANCE_REF, parseTerritoryRef, territoryKey, type TerritoryRef } from './territory.ts'
 
 export type FuelKey = FuelSeries['key']
 /** Maturité éCO2mix : R temps réel, C consolidée, D définitive. */
@@ -15,6 +16,8 @@ export type Maturity = NationalPoint['maturity']
 
 export interface Filters {
   readonly range: NationalRange
+  /** Territoire de l'Explorateur, par code : le libellé vient des données chargées. */
+  readonly territory: TerritoryRef
   /** Filières affichées dans le mix ; au moins une, toujours. */
   readonly fuels: ReadonlySet<FuelKey>
   /** Maturités retenues ; au moins une, toujours. */
@@ -42,6 +45,7 @@ const MATURITY_VALUES: readonly Maturity[] = MATURITIES.map((option) => option.v
 
 export const DEFAULT_FILTERS: Filters = {
   range: '24h',
+  territory: FRANCE_REF,
   fuels: new Set(FUEL_KEYS),
   maturity: new Set(MATURITY_VALUES),
 }
@@ -64,6 +68,7 @@ export function parseFilters(search: string): Filters {
   const range = params.get('range')
   return {
     range: RANGES.find((value) => value === range) ?? DEFAULT_FILTERS.range,
+    territory: parseTerritoryRef(params.get('territory') ?? '') ?? DEFAULT_FILTERS.territory,
     fuels: parseSet(params.get('fuels'), FUEL_KEYS, DEFAULT_FILTERS.fuels),
     maturity: parseSet(params.get('maturity'), MATURITY_VALUES, DEFAULT_FILTERS.maturity),
   }
@@ -83,6 +88,8 @@ function serializeSet<T extends string>(
 export function serializeFilters(filters: Filters): string {
   const parts: string[] = []
   if (filters.range !== DEFAULT_FILTERS.range) parts.push(`range=${filters.range}`)
+  if (filters.territory.kind !== 'france')
+    parts.push(`territory=${territoryKey(filters.territory)}`)
   const fuels = serializeSet(filters.fuels, FUEL_KEYS)
   if (fuels !== null) parts.push(`fuels=${fuels}`)
   const maturity = serializeSet(filters.maturity, MATURITY_VALUES)

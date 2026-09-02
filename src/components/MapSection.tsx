@@ -39,7 +39,7 @@ function RegionPanel({
   region: RegionalLatest
   national: NationalLatest | null
   onClose: () => void
-  onExplore?: ((code: string, name: string) => void) | undefined
+  onExplore?: ((code: string) => void) | undefined
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -109,7 +109,7 @@ function RegionPanel({
         <button
           type="button"
           onClick={() => {
-            onExplore(region.region_code, region.region_name)
+            onExplore(region.region_code)
           }}
           className="mt-2 rounded-md border border-line-strong px-2.5 py-1 font-data text-xs text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
@@ -129,7 +129,7 @@ export function MapSection({
   regions: readonly RegionalLatest[]
   national: NationalLatest | null
   regionsStatus: RegionsStatus
-  onExploreRegion?: (code: string, name: string) => void
+  onExploreRegion?: (code: string) => void
 }) {
   const geoQuery = useRegionsGeo()
   const reduceMotion = usePrefersReducedMotion()
