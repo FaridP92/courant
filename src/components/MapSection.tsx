@@ -9,8 +9,10 @@ import {
   formatWholePercent,
 } from '../lib/format.ts'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
-import { buildMapOption, REGIONS_MAP_NAME } from './charts/mapOptions.ts'
+import { MAP_METRICS, mapMetricOption, type MapMetric } from '../lib/filters.ts'
+import { buildMapOption, mapAriaLabel, REGIONS_MAP_NAME } from './charts/mapOptions.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
+import { SegmentedControl } from './controls/SegmentedControl.tsx'
 import { ExportButton } from './ExportButton.tsx'
 
 type RegionsStatus = 'pending' | 'error' | 'success'
@@ -124,11 +126,16 @@ export function MapSection({
   regions,
   national,
   regionsStatus,
+  metric,
+  onMetricChange,
   onExploreRegion,
 }: {
   regions: readonly RegionalLatest[]
   national: NationalLatest | null
   regionsStatus: RegionsStatus
+  /** Grandeur qui donne sa teinte à la choroplèthe (critère partagé, porté par l'URL). */
+  metric: MapMetric
+  onMetricChange: (metric: MapMetric) => void
   onExploreRegion?: (code: string) => void
 }) {
   const geoQuery = useRegionsGeo()
@@ -149,14 +156,10 @@ export function MapSection({
 
   // mémoïsé : un rendu sans changement de données ne relance ni setOption ni l'animation
   const mapOption = useMemo(
-    () => buildMapOption(regions, national, selectedCode, reduceMotion),
-    [regions, national, selectedCode, reduceMotion],
+    () => buildMapOption(regions, national, selectedCode, reduceMotion, metric),
+    [regions, national, selectedCode, reduceMotion, metric],
   )
-  const mapAriaLabel = useMemo(
-    () =>
-      `Carte de France : consommation par région (du plus clair au plus foncé) et flux d'échanges aux frontières. ${regions.map((r) => `${r.region_name} ${formatGigawatts(r.consommation)} gigawatts`).join(', ')}.`,
-    [regions],
-  )
+  const ariaLabel = useMemo(() => mapAriaLabel(regions, metric), [regions, metric])
 
   const exportRows = regions.map((r) => ({
     region: r.region_name,
@@ -177,20 +180,28 @@ export function MapSection({
 
   return (
     <article className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
         <h2 className="font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
           Régions et échanges{' '}
           <span className="font-normal tracking-normal normal-case">
-            teinte = consommation · clic pour le détail
+            teinte = {mapMetricOption(metric).hint} · clic pour le détail
           </span>
         </h2>
-        <ExportButton rows={exportRows} filename="courant-regions.csv" />
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            label="Métrique de la carte"
+            options={MAP_METRICS}
+            value={metric}
+            onChange={onMetricChange}
+          />
+          <ExportButton rows={exportRows} filename="courant-regions.csv" />
+        </div>
       </div>
       {geoQuery.isSuccess && regions.length > 0 ? (
         <ChartSlot heightClass="h-[380px] w-full">
           <EChart
             option={mapOption}
-            ariaLabel={mapAriaLabel}
+            ariaLabel={ariaLabel}
             className="h-[380px] w-full"
             onClick={(params) => {
               const code = (params as { data?: { code?: unknown } }).data?.code

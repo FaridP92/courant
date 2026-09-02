@@ -460,6 +460,10 @@ export function Dashboard() {
                   regions={regionalQuery.data ?? []}
                   national={latest}
                   regionsStatus={regionalQuery.status}
+                  metric={filters.mapMetric}
+                  onMetricChange={(mapMetric) => {
+                    setFilters({ mapMetric })
+                  }}
                   onExploreRegion={exploreRegion}
                 />
                 {/* priorité mobile du brief : les signaux avant la carte */}

@@ -16,6 +16,8 @@ export type Maturity = NationalPoint['maturity']
 
 export interface Filters {
   readonly range: NationalRange
+  /** Grandeur qui donne sa teinte à la choroplèthe régionale. */
+  readonly mapMetric: MapMetric
   /** Territoire de l'Explorateur, par code : le libellé vient des données chargées. */
   readonly territory: TerritoryRef
   /** Filières affichées dans le mix ; au moins une, toujours. */
@@ -25,6 +27,58 @@ export interface Filters {
 }
 
 const RANGES: readonly NationalRange[] = ['24h', '7d', '30d']
+
+export type MapMetric = 'consommation' | 'renouvelables' | 'autonomie' | 'echanges'
+
+export interface MapMetricOption {
+  value: MapMetric
+  /** Libellé court du segment. */
+  label: string
+  /** Nom complet, utilisé en infobulle et dans la description accessible. */
+  name: string
+  title: string
+  /** Complément de l'intitulé de la carte : « teinte = ... ». */
+  hint: string
+}
+
+const CONSUMPTION_METRIC: MapMetricOption = {
+  value: 'consommation',
+  label: 'Conso',
+  name: 'Consommation',
+  title: 'Consommation régionale du dernier point publié',
+  hint: 'consommation',
+}
+
+export const MAP_METRICS: readonly MapMetricOption[] = [
+  CONSUMPTION_METRIC,
+  {
+    value: 'renouvelables',
+    label: 'Renouv.',
+    name: 'Part renouvelable',
+    title: 'Part des renouvelables dans la production de la région',
+    hint: 'part renouvelable',
+  },
+  {
+    value: 'autonomie',
+    label: 'Autonomie',
+    name: 'Autonomie',
+    title: 'Production locale rapportée à la consommation locale',
+    hint: 'autonomie',
+  },
+  {
+    value: 'echanges',
+    label: 'Solde',
+    name: "Solde d'échanges",
+    title: "Solde d'échanges de la région : positif quand elle exporte",
+    hint: "solde d'échanges",
+  },
+]
+
+const MAP_METRIC_VALUES: readonly MapMetric[] = MAP_METRICS.map((option) => option.value)
+
+export function mapMetricOption(metric: MapMetric): MapMetricOption {
+  return MAP_METRICS.find((option) => option.value === metric) ?? CONSUMPTION_METRIC
+}
 
 /** Ordre canonique des filières : celui de l'empilement du mix, pas celui des clics. */
 export const FUEL_KEYS: readonly FuelKey[] = FUELS.map((fuel) => fuel.key)
@@ -45,6 +99,7 @@ const MATURITY_VALUES: readonly Maturity[] = MATURITIES.map((option) => option.v
 
 export const DEFAULT_FILTERS: Filters = {
   range: '24h',
+  mapMetric: 'consommation',
   territory: FRANCE_REF,
   fuels: new Set(FUEL_KEYS),
   maturity: new Set(MATURITY_VALUES),
@@ -69,6 +124,8 @@ export function parseFilters(search: string): Filters {
   return {
     range: RANGES.find((value) => value === range) ?? DEFAULT_FILTERS.range,
     territory: parseTerritoryRef(params.get('territory') ?? '') ?? DEFAULT_FILTERS.territory,
+    mapMetric:
+      MAP_METRIC_VALUES.find((value) => value === params.get('map')) ?? DEFAULT_FILTERS.mapMetric,
     fuels: parseSet(params.get('fuels'), FUEL_KEYS, DEFAULT_FILTERS.fuels),
     maturity: parseSet(params.get('maturity'), MATURITY_VALUES, DEFAULT_FILTERS.maturity),
   }
@@ -90,6 +147,7 @@ export function serializeFilters(filters: Filters): string {
   if (filters.range !== DEFAULT_FILTERS.range) parts.push(`range=${filters.range}`)
   if (filters.territory.kind !== 'france')
     parts.push(`territory=${territoryKey(filters.territory)}`)
+  if (filters.mapMetric !== DEFAULT_FILTERS.mapMetric) parts.push(`map=${filters.mapMetric}`)
   const fuels = serializeSet(filters.fuels, FUEL_KEYS)
   if (fuels !== null) parts.push(`fuels=${fuels}`)
   const maturity = serializeSet(filters.maturity, MATURITY_VALUES)

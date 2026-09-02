@@ -50,6 +50,11 @@ describe('parseFilters', () => {
     expect(parseFilters('?territory=').territory).toEqual(FRANCE_REF)
   })
 
+  it('lit la métrique de la carte, et ignore une métrique inconnue', () => {
+    expect(parseFilters('?map=autonomie').mapMetric).toBe('autonomie')
+    expect(parseFilters('?map=densite').mapMetric).toBe('consommation')
+  })
+
   it('lit la période, les filières et la maturité', () => {
     const filters = parseFilters('?range=7d&fuels=nucleaire,eolien&maturity=C,D')
 
@@ -95,6 +100,11 @@ describe('serializeFilters', () => {
     expect(isDefaultFilters(filters)).toBe(false)
   })
 
+  it('écrit la métrique de la carte quand elle quitte la consommation', () => {
+    expect(serializeFilters({ ...DEFAULT_FILTERS, mapMetric: 'echanges' })).toBe('map=echanges')
+    expect(serializeFilters({ ...DEFAULT_FILTERS, mapMetric: 'consommation' })).toBe('')
+  })
+
   it('écrit le territoire quand il quitte la France entière', () => {
     expect(
       serializeFilters({ ...DEFAULT_FILTERS, territory: { kind: 'region', code: '84' } }),
@@ -106,6 +116,7 @@ describe('serializeFilters', () => {
     const filters: Filters = {
       range: '30d',
       territory: { kind: 'metropole', code: '200046977' },
+      mapMetric: 'renouvelables',
       fuels: new Set(['nucleaire', 'solaire']),
       maturity: new Set(['R']),
     }
