@@ -50,6 +50,25 @@ describe('parseFilters', () => {
     expect(parseFilters('?territory=').territory).toEqual(FRANCE_REF)
   })
 
+  it('lit les territoires comparés, sans doublon ni répétition du principal', () => {
+    const filters = parseFilters(
+      '?territory=region:84&compare=region:11,region:84,region:11,region:53',
+    )
+
+    // le principal et les doublons sautent, le plafond de deux comparaisons tient
+    expect(filters.compare).toEqual([
+      { kind: 'region', code: '11' },
+      { kind: 'region', code: '53' },
+    ])
+  })
+
+  it('ignore les comparaisons illisibles au lieu de vider la liste', () => {
+    expect(parseFilters('?compare=departement:75,region:11').compare).toEqual([
+      { kind: 'region', code: '11' },
+    ])
+    expect(parseFilters('?compare=').compare).toEqual([])
+  })
+
   it('lit la métrique de la carte, et ignore une métrique inconnue', () => {
     expect(parseFilters('?map=autonomie').mapMetric).toBe('autonomie')
     expect(parseFilters('?map=densite').mapMetric).toBe('consommation')
@@ -128,6 +147,18 @@ describe('serializeFilters', () => {
     expect(serializeFilters({ ...DEFAULT_FILTERS, mapMetric: 'consommation' })).toBe('')
   })
 
+  it('écrit la liste des comparaisons dans son ordre', () => {
+    expect(
+      serializeFilters({
+        ...DEFAULT_FILTERS,
+        compare: [
+          { kind: 'region', code: '11' },
+          { kind: 'metropole', code: '200046977' },
+        ],
+      }),
+    ).toBe('compare=region:11,metropole:200046977')
+  })
+
   it('écrit le territoire quand il quitte la France entière', () => {
     expect(
       serializeFilters({ ...DEFAULT_FILTERS, territory: { kind: 'region', code: '84' } }),
@@ -139,6 +170,7 @@ describe('serializeFilters', () => {
     const filters: Filters = {
       range: '30d',
       territory: { kind: 'metropole', code: '200046977' },
+      compare: [{ kind: 'region', code: '11' }],
       mapMetric: 'renouvelables',
       co2Threshold: 30,
       deviationThreshold: 5,

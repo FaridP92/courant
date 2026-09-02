@@ -20,6 +20,8 @@ export interface Filters {
   readonly mapMetric: MapMetric
   /** Territoire de l'Explorateur, par code : le libellé vient des données chargées. */
   readonly territory: TerritoryRef
+  /** Territoires superposés au principal, pour comparer les courbes. */
+  readonly compare: readonly TerritoryRef[]
   /** Filières affichées dans le mix ; au moins une, toujours. */
   readonly fuels: ReadonlySet<FuelKey>
   /** Maturités retenues ; au moins une, toujours. */
@@ -109,10 +111,15 @@ export const CO2_THRESHOLDS: readonly number[] = [30, 50, 80]
 /** Paliers d'écart au programme J-1, en pourcentage. */
 export const DEVIATION_THRESHOLDS: readonly number[] = [2, 5, 10]
 
+/** Deux comparaisons au plus : au-delà, les courbes se lisent moins bien qu'elles
+ * n'informent, et chaque territoire ajoute une requête. */
+export const MAX_COMPARE = 2
+
 export const DEFAULT_FILTERS: Filters = {
   range: '24h',
   mapMetric: 'consommation',
   territory: FRANCE_REF,
+  compare: [],
   fuels: new Set(FUEL_KEYS),
   maturity: new Set(MATURITY_VALUES),
   co2Threshold: null,
@@ -132,12 +139,30 @@ function parseSet<T extends string>(
   return kept.length === 0 ? fallback : new Set(kept)
 }
 
+/** Comparaisons lisibles : références valides, sans doublon, sans répéter le
+ * territoire principal, et plafonnées. */
+function parseCompare(raw: string | null, primary: TerritoryRef): TerritoryRef[] {
+  if (raw === null) return []
+  const seen = new Set([territoryKey(primary)])
+  const refs: TerritoryRef[] = []
+  for (const part of raw.split(',')) {
+    const ref = parseTerritoryRef(part.trim())
+    if (ref === null || seen.has(territoryKey(ref))) continue
+    seen.add(territoryKey(ref))
+    refs.push(ref)
+    if (refs.length === MAX_COMPARE) break
+  }
+  return refs
+}
+
 export function parseFilters(search: string): Filters {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   const range = params.get('range')
+  const territory = parseTerritoryRef(params.get('territory') ?? '') ?? DEFAULT_FILTERS.territory
   return {
     range: RANGES.find((value) => value === range) ?? DEFAULT_FILTERS.range,
-    territory: parseTerritoryRef(params.get('territory') ?? '') ?? DEFAULT_FILTERS.territory,
+    territory,
+    compare: parseCompare(params.get('compare'), territory),
     mapMetric:
       MAP_METRIC_VALUES.find((value) => value === params.get('map')) ?? DEFAULT_FILTERS.mapMetric,
     fuels: parseSet(params.get('fuels'), FUEL_KEYS, DEFAULT_FILTERS.fuels),
@@ -164,6 +189,8 @@ export function serializeFilters(filters: Filters): string {
   if (filters.range !== DEFAULT_FILTERS.range) parts.push(`range=${filters.range}`)
   if (filters.territory.kind !== 'france')
     parts.push(`territory=${territoryKey(filters.territory)}`)
+  if (filters.compare.length > 0)
+    parts.push(`compare=${filters.compare.map((ref) => territoryKey(ref)).join(',')}`)
   if (filters.mapMetric !== DEFAULT_FILTERS.mapMetric) parts.push(`map=${filters.mapMetric}`)
   const fuels = serializeSet(filters.fuels, FUEL_KEYS)
   if (fuels !== null) parts.push(`fuels=${fuels}`)

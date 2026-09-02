@@ -64,6 +64,33 @@ sens qui appelle des couleurs interdites, et d'un critère qui ne restreint rien
 - `buildMapOption` et `buildHeroChartOption` prennent leur critère en argument optionnel,
   avec la valeur par défaut d'avant : les tests existants ont continué de passer sans
   retouche.
-- Reste à faire : les seuils d'écart aux prévisions (même patron que le CO2), la
-  comparaison de plusieurs territoires sur un même graphe, et l'export qui ne porte
-  encore le critère que dans son nom de fichier.
+- Restaient à faire : les seuils d'écart aux prévisions, la comparaison de plusieurs
+  territoires et l'export qui ne portait le critère que dans son nom de fichier. Les
+  trois ont suivi, avec les questions qu'ils posaient : voir l'addendum ci-dessous.
+
+## Addendum : comparaison de territoires et exports (2026-09-02)
+
+9. **Comparer, ce n'est pas changer de territoire.** L'URL porte un territoire
+   principal et jusqu'à deux comparaisons (`compare=region:11,region:53`). Les jauges,
+   les statistiques et le mix restent ceux du principal, et l'interface le dit sous le
+   graphe : superposer des courbes sans dire à quoi se rapportent les chiffres autour
+   serait la meilleure façon de faire lire une valeur pour une autre.
+
+10. **Deux comparaisons au plus.** Au-delà, les courbes se lisent moins bien qu'elles
+    n'informent, et chaque territoire ajoute trois requêtes. Le plafond tient aussi
+    côté lecture d'URL : une liste plus longue est tronquée, jamais rejetée. Il permet
+    surtout d'appeler `useTerritorySeries` un nombre fixe de fois, donc de garder des
+    hooks stables d'un rendu à l'autre.
+
+11. **L'aire ne se remplit qu'à une seule courbe.** Superposées, des aires translucides
+    se cachent l'une l'autre et faussent la comparaison : au-delà d'une courbe, seuls
+    les traits restent, chacun avec sa couleur nommée dans la légende. Les teintes de
+    comparaison viennent de la palette validée et ne portent aucun sens de filière dans
+    ce graphe, qui n'en trace aucune.
+
+12. **Un export s'explique de lui-même.** Les lignes sont construites au même endroit
+    (`src/lib/exports.ts`), sous tests : la maturité accompagne chaque mesure nationale,
+    de sorte qu'une ligne vidée par un critère dit pourquoi elle est vide ; le nom du
+    territoire accompagne chaque ligne territoriale ; l'export de la carte ajoute les
+    grandeurs qu'elle sait teinter. L'export reste celui du territoire principal : mêler
+    deux territoires dans un fichier à colonnes différentes produirait un CSV bancal.

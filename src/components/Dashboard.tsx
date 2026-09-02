@@ -27,6 +27,7 @@ import {
   useTempoData,
 } from '../hooks/useNationalData.ts'
 import { nationalExportRows } from '../lib/exports.ts'
+import { territoryKey } from '../lib/territory.ts'
 import { parisDayIso } from '../lib/signals.ts'
 import { heroHighlights, highlightSummary } from '../lib/highlights.ts'
 import { useFilters } from '../hooks/useFilters.ts'
@@ -520,7 +521,18 @@ export function Dashboard() {
               national={latest}
               territory={filters.territory}
               onTerritoryChange={(territory) => {
-                setFilters({ territory })
+                // changer de territoire principal ne garde pas une comparaison qui
+                // ferait doublon avec lui
+                setFilters({
+                  territory,
+                  compare: filters.compare.filter(
+                    (ref) => territoryKey(ref) !== territoryKey(territory),
+                  ),
+                })
+              }}
+              compare={filters.compare}
+              onCompareChange={(compare) => {
+                setFilters({ compare })
               }}
               range={filters.range}
               onRangeChange={(range) => {

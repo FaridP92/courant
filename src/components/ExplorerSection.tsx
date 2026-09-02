@@ -16,7 +16,7 @@ import {
 } from '../lib/format.ts'
 import { regionalExportRows, territoryExportRows } from '../lib/exports.ts'
 import { formatDayShort, parisDayIso } from '../lib/signals.ts'
-import { seriesStats, trimTrailingGaps, windowFromLast } from '../lib/stats.ts'
+import { seriesStats } from '../lib/stats.ts'
 import {
   parseTerritoryRef,
   resolveTerritory,
@@ -24,16 +24,15 @@ import {
   territoryLabel,
   type TerritoryRef,
 } from '../lib/territory.ts'
-import {
-  useMetropoleSeries,
-  useNationalSeries,
-  useRegionalSeries,
-} from '../hooks/useNationalData.ts'
+import { MAX_COMPARE } from '../lib/filters.ts'
+import { useTerritorySeries } from '../hooks/useTerritorySeries.ts'
 import {
   buildRegionalMixOption,
   buildTerritoryConsoOption,
+  curveColor,
   REGIONAL_FUELS,
   territoryChartAriaLabel,
+  type TerritoryCurve,
 } from './charts/explorerOptions.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { ExportButton } from './ExportButton.tsx'
@@ -67,6 +66,8 @@ export function ExplorerSection({
   national,
   territory,
   onTerritoryChange,
+  compare,
+  onCompareChange,
   range,
   onRangeChange,
 }: {
@@ -76,6 +77,9 @@ export function ExplorerSection({
   /** Territoire demandé, par code : le libellé est résolu ici, depuis les données. */
   territory: TerritoryRef
   onTerritoryChange: (territory: TerritoryRef) => void
+  /** Territoires superposés au principal (deux au plus). */
+  compare: readonly TerritoryRef[]
+  onCompareChange: (compare: readonly TerritoryRef[]) => void
   /** Période partagée avec la colonne du temps : un seul critère pour toute la page. */
   range: NationalRange
   onRangeChange: (range: NationalRange) => void
@@ -83,50 +87,12 @@ export function ExplorerSection({
   // les métropoles n'ont que 7 jours d'historique : 30 j retombe sur 7 j
   const effectiveRange = territory.kind === 'metropole' && range === '30d' ? '7d' : range
 
-  const nationalQuery = useNationalSeries(effectiveRange, territory.kind === 'france')
-  const regionalQuery = useRegionalSeries(
-    territory.kind === 'region' ? territory.code : null,
-    effectiveRange,
-  )
-  const metropoleQuery = useMetropoleSeries(territory.kind === 'metropole' ? territory.code : null)
-
-  const regionalData = regionalQuery.data
-  const regionalPoints = useMemo(() => regionalData ?? [], [regionalData])
-  const { points, status } = useMemo(() => {
-    // la queue de prévisions pures (conso nulle) ne pollue ni fraîcheur, ni stats, ni export
-    if (territory.kind === 'region') {
-      return {
-        points: trimTrailingGaps(
-          regionalPoints.map((p) => ({ ts: p.ts, consommation: p.consommation })),
-        ),
-        status: regionalQuery.status,
-      }
-    }
-    if (territory.kind === 'metropole') {
-      // fenêtre ancrée sur le dernier point publié, jamais sur l'horloge du rendu
-      const all = metropoleQuery.data ?? []
-      const kept = effectiveRange === '24h' ? windowFromLast(all, 26) : all
-      return {
-        points: trimTrailingGaps(kept.map((p) => ({ ts: p.ts, consommation: p.consommation }))),
-        status: metropoleQuery.status,
-      }
-    }
-    return {
-      points: trimTrailingGaps(
-        (nationalQuery.data ?? []).map((p) => ({ ts: p.ts, consommation: p.consommation })),
-      ),
-      status: nationalQuery.status,
-    }
-  }, [
-    territory,
-    regionalPoints,
-    regionalQuery.status,
-    metropoleQuery.data,
-    metropoleQuery.status,
-    nationalQuery.data,
-    nationalQuery.status,
-    effectiveRange,
-  ])
+  const primary = useTerritorySeries(territory, effectiveRange)
+  // deux emplacements de comparaison, appelés à vide tant qu'ils ne portent rien :
+  // les hooks restent au même nombre et dans le même ordre à chaque rendu
+  const firstCompare = useTerritorySeries(compare[0] ?? null, effectiveRange)
+  const secondCompare = useTerritorySeries(compare[1] ?? null, effectiveRange)
+  const { points, regionalPoints, status } = primary
 
   const stats = seriesStats(points)
   const lastTs = points[points.length - 1]?.ts ?? null
@@ -206,15 +172,54 @@ export function ExplorerSection({
     [territory, regionOptions, metroOptions],
   )
 
+  const taken = new Set([territoryKey(territory), ...compare.map((ref) => territoryKey(ref))])
+  const comparableOptions = {
+    france: !taken.has('france'),
+    regions: regionOptions.filter((r) => !taken.has(`region:${r.code}`)),
+    metropoles: metroOptions.filter((m) => !taken.has(`metropole:${m.code}`)),
+  }
+
+  const labelFor = (ref: TerritoryRef): string =>
+    territoryLabel(resolveTerritory(ref, regionOptions, metroOptions))
+
   const handleTerritoryValue = (value: string) => {
     const ref = parseTerritoryRef(value)
     if (ref !== null) onTerritoryChange(ref)
   }
 
-  const consoOption = useMemo(() => buildTerritoryConsoOption(points), [points])
+  const addCompare = (value: string) => {
+    const ref = parseTerritoryRef(value)
+    if (ref === null || compare.length >= MAX_COMPARE) return
+    const key = territoryKey(ref)
+    if (key === territoryKey(territory) || compare.some((c) => territoryKey(c) === key)) return
+    onCompareChange([...compare, ref])
+  }
+
+  const removeCompare = (ref: TerritoryRef) => {
+    onCompareChange(compare.filter((c) => territoryKey(c) !== territoryKey(ref)))
+  }
+
   const mixOption = useMemo(() => buildRegionalMixOption(regionalPoints), [regionalPoints])
 
   const label = territoryLabel(resolved)
+
+  // une courbe par territoire : le principal d'abord, puis les comparaisons qui
+  // portent des points (un territoire encore en chargement n'ajoute pas de ligne vide)
+  const curves = useMemo<TerritoryCurve[]>(() => {
+    const comparisons = compare.flatMap((ref, index) => {
+      const comparePoints = (index === 0 ? firstCompare : secondCompare).points
+      return comparePoints.length === 0
+        ? []
+        : [
+            {
+              name: territoryLabel(resolveTerritory(ref, regionOptions, metroOptions)),
+              points: comparePoints,
+            },
+          ]
+    })
+    return [{ name: label, points }, ...comparisons]
+  }, [label, points, compare, firstCompare, secondCompare, regionOptions, metroOptions])
+  const consoOption = useMemo(() => buildTerritoryConsoOption(curves), [curves])
   const exportRows =
     territory.kind === 'region'
       ? regionalExportRows(regionalPoints)
@@ -269,6 +274,43 @@ export function ExplorerSection({
                   <option value={territoryKey(territory)}>{label}</option>
                 )}
               {metroOptions.map((m) => (
+                <option key={m.code} value={`metropole:${m.code}`}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <label
+            htmlFor="explorer-compare"
+            className="font-data text-[11px] tracking-[0.08em] text-ink-40 uppercase"
+          >
+            Comparer
+          </label>
+          <select
+            id="explorer-compare"
+            value=""
+            disabled={compare.length >= MAX_COMPARE}
+            title={
+              compare.length >= MAX_COMPARE
+                ? `Deux comparaisons au plus : retirez-en une pour en ajouter une autre`
+                : 'Superposer un autre territoire à la courbe'
+            }
+            onChange={(event) => {
+              addCompare(event.target.value)
+            }}
+            className="rounded-md border border-line-strong bg-raised px-2.5 py-1.5 font-data text-xs text-ink-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <option value="">+ ajouter</option>
+            {comparableOptions.france && <option value="france">France entière</option>}
+            <optgroup label="Régions">
+              {comparableOptions.regions.map((r) => (
+                <option key={r.code} value={`region:${r.code}`}>
+                  {r.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Métropoles">
+              {comparableOptions.metropoles.map((m) => (
                 <option key={m.code} value={`metropole:${m.code}`}>
                   {m.name}
                 </option>
@@ -361,10 +403,39 @@ export function ExplorerSection({
               <ChartSlot heightClass="h-[200px] w-full">
                 <EChart
                   option={consoOption}
-                  ariaLabel={territoryChartAriaLabel(label, points.length)}
+                  ariaLabel={territoryChartAriaLabel(curves)}
                   className="h-[200px] w-full"
                 />
               </ChartSlot>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-data text-[11px] text-ink-60">
+                {curves.map((curve, index) => (
+                  <span key={curve.name} className="flex items-center gap-1.5">
+                    <i
+                      className="h-[3px] w-3.5 rounded-sm"
+                      style={{ backgroundColor: curveColor(index) }}
+                    />
+                    {curve.name}
+                  </span>
+                ))}
+                {compare.map((ref) => (
+                  <button
+                    key={territoryKey(ref)}
+                    type="button"
+                    title={`Retirer ${labelFor(ref)} de la comparaison`}
+                    onClick={() => {
+                      removeCompare(ref)
+                    }}
+                    className="rounded-md border border-line-strong px-1.5 py-0.5 text-[10.5px] text-ink-40 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                  >
+                    retirer {labelFor(ref)}
+                  </button>
+                ))}
+                {compare.length > 0 && (
+                  <span className="text-[10.5px] text-ink-40">
+                    jauges et statistiques restent celles de {label}
+                  </span>
+                )}
+              </p>
               {territory.kind === 'region' && regionalPoints.length > 0 && (
                 <>
                   <h3 className="mt-3 mb-1 font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">

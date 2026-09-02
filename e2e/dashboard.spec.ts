@@ -361,7 +361,8 @@ test.describe('Dashboard avec données mockées', () => {
 
     // carte : la teinte suit la métrique demandée
     await expect(page.getByText(/teinte = autonomie/)).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Autonomie' })).toHaveAttribute(
+    // exact : le nom du fichier d'export porte lui aussi la métrique
+    await expect(page.getByRole('button', { name: 'Autonomie', exact: true })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -375,6 +376,31 @@ test.describe('Dashboard avec données mockées', () => {
     await explorer.getByLabel('Territoire').selectOption('region:53')
     await expect(page).toHaveURL(/territory=region:53/)
     await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test('deux territoires se superposent, et le lien les emporte', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/?territory=region:84')
+
+    const explorer = page.locator('#explorer')
+    await expect(explorer.getByText('Consommation · Auvergne-Rhône-Alpes')).toBeVisible()
+
+    await explorer.getByLabel('Comparer').selectOption('region:53')
+    await expect(page).toHaveURL(/compare=region:53/)
+    // la légende nomme les deux courbes et rappelle ce qui reste au principal
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toBeVisible()
+    await expect(
+      explorer.getByText(/jauges et statistiques restent celles de Auvergne-Rhône-Alpes/),
+    ).toBeVisible()
+
+    // un rechargement rouvre la comparaison à l'identique
+    await page.reload()
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toBeVisible()
+
+    // et le retrait la défait, dans la vue comme dans l'URL
+    await explorer.getByRole('button', { name: /retirer Bretagne/i }).click()
+    await expect(page).not.toHaveURL(/compare=/)
+    await expect(explorer.getByRole('button', { name: /retirer Bretagne/i })).toHaveCount(0)
   })
 })
 
