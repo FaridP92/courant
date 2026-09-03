@@ -7,13 +7,14 @@
  * personnelle. Les secrets ne vivent que dans les variables d'environnement
  * du serveur ; le texte utilisateur n'est jamais interpole dans du SQL.
  */
-import { guardSql } from '../src/lib/chatGuard.ts'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { guardSql } from '../src/lib/chatGuard.js'
 import {
   buildAnswerMessages,
   buildPlanMessages,
   parsePlan,
   type ChatMessage,
-} from '../src/lib/chatPrompts.ts'
+} from '../src/lib/chatPrompts.js'
 
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://cwdickfefpobnsceubew.supabase.co'
@@ -40,11 +41,29 @@ function rateLimited(): boolean {
   return windowCount > RATE_MAX
 }
 
-function jsonResponse(body: object, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  })
+/** La requête telle que Vercel la livre au handler Node : corps déjà parsé quand
+ * le client envoie du JSON, brut sinon. */
+type FunctionRequest = IncomingMessage & { body?: unknown }
+
+function send(res: ServerResponse, body: object, status = 200): void {
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json; charset=utf-8')
+  res.end(JSON.stringify(body))
+}
+
+/** Le corps arrive déjà parsé (JSON) ou brut selon le client : on accepte les deux. */
+function readQuestion(body: unknown): string {
+  let parsed: unknown = body
+  if (typeof body === 'string') {
+    try {
+      parsed = JSON.parse(body)
+    } catch {
+      return ''
+    }
+  }
+  if (typeof parsed !== 'object' || parsed === null) return ''
+  const question = (parsed as { question?: unknown }).question
+  return typeof question === 'string' ? question.trim() : ''
 }
 
 async function callMistral(messages: ChatMessage[], apiKey: string): Promise<string> {
@@ -128,43 +147,47 @@ async function logQuestion(entry: LogEntry, serviceKey: string): Promise<void> {
   }
 }
 
-export async function POST(request: Request): Promise<Response> {
+export default async function handler(req: FunctionRequest, res: ServerResponse): Promise<void> {
   const startedAt = Date.now()
+  if (req.method !== 'POST') {
+    send(res, { answer: 'Méthode non autorisée.' }, 405)
+    return
+  }
   const mistralKey = process.env.MISTRAL_API_KEY
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (mistralKey === undefined || serviceKey === undefined) {
-    return jsonResponse({ answer: "Le chat n'est pas encore configuré sur ce déploiement." }, 503)
+    send(res, { answer: "Le chat n'est pas encore configuré sur ce déploiement." }, 503)
+    return
   }
   if (rateLimited()) {
-    return jsonResponse(
+    send(
+      res,
       { answer: 'Beaucoup de questions arrivent en même temps, réessaie dans une minute.' },
       429,
     )
+    return
   }
 
-  let question: string
-  try {
-    const body = (await request.json()) as { question?: unknown }
-    question = typeof body.question === 'string' ? body.question.trim() : ''
-  } catch {
-    question = ''
-  }
+  const question = readQuestion(req.body)
   if (question.length < 3 || question.length > 300) {
-    return jsonResponse({ answer: 'Pose une question en quelques mots (300 caractères max).' }, 400)
+    send(res, { answer: 'Pose une question en quelques mots (300 caractères max).' }, 400)
+    return
   }
 
   try {
     const plan = parsePlan(await callMistral(buildPlanMessages(question), mistralKey))
     if (plan === null) {
       await logQuestion({ question, sql: null, status: 'error', rows: null, startedAt }, serviceKey)
-      return jsonResponse({ answer: UNAVAILABLE })
+      send(res, { answer: UNAVAILABLE })
+      return
     }
     if ('refusal' in plan) {
       await logQuestion(
         { question, sql: null, status: 'refused', rows: null, startedAt },
         serviceKey,
       )
-      return jsonResponse({ answer: plan.refusal })
+      send(res, { answer: plan.refusal })
+      return
     }
 
     const guarded = guardSql(plan.sql)
@@ -173,7 +196,8 @@ export async function POST(request: Request): Promise<Response> {
         { question, sql: plan.sql, status: 'guard_rejected', rows: null, startedAt },
         serviceKey,
       )
-      return jsonResponse({ answer: OUT_OF_SCOPE })
+      send(res, { answer: OUT_OF_SCOPE })
+      return
     }
 
     const result = (await callRpc('run_chat_query', { q: guarded.sql }, serviceKey)) as {
@@ -185,7 +209,8 @@ export async function POST(request: Request): Promise<Response> {
         { question, sql: guarded.sql, status: 'error', rows: null, startedAt },
         serviceKey,
       )
-      return jsonResponse({ answer: OUT_OF_SCOPE })
+      send(res, { answer: OUT_OF_SCOPE })
+      return
     }
 
     const rows: unknown[] = result.rows
@@ -195,9 +220,9 @@ export async function POST(request: Request): Promise<Response> {
       { question, sql: guarded.sql, status: 'answered', rows: rows.length, startedAt },
       serviceKey,
     )
-    return jsonResponse({ answer, sql: guarded.sql, rowCount: rows.length })
+    send(res, { answer, sql: guarded.sql, rowCount: rows.length })
   } catch {
     await logQuestion({ question, sql: null, status: 'error', rows: null, startedAt }, serviceKey)
-    return jsonResponse({ answer: UNAVAILABLE })
+    send(res, { answer: UNAVAILABLE })
   }
 }
