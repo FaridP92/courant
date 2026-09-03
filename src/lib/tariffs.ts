@@ -176,6 +176,76 @@ export function splitByTempo(
   return { buckets, uncoveredKwh }
 }
 
+/** Fourchette de coût quand la donnée ne permet pas de séparer heures pleines et
+ * heures creuses (export quotidien) : du tout-heures-creuses au tout-heures-pleines.
+ * Ce sont des bornes exactes, pas une estimation. */
+export interface CostRange {
+  subscription: number
+  energyMin: number
+  energyMax: number
+  totalMin: number
+  totalMax: number
+}
+
+function range(subscription: number, energyMin: number, energyMax: number): CostRange {
+  const sub = round2(subscription)
+  const lo = round2(Math.min(energyMin, energyMax))
+  const hi = round2(Math.max(energyMin, energyMax))
+  return {
+    subscription: sub,
+    energyMin: lo,
+    energyMax: hi,
+    totalMin: round2(sub + lo),
+    totalMax: round2(sub + hi),
+  }
+}
+
+export function rangeHphc(kwh: number, tariff: TrvTariff): CostRange | null {
+  const hp = priceOf(tariff, 'hp')
+  const hc = priceOf(tariff, 'hc')
+  if (hp === null || hc === null) return null
+  return range(tariff.fixed_ttc, kwh * hc, kwh * hp)
+}
+
+/** Une énergie par jour civil Paris (« YYYY-MM-DD »). */
+export interface DailyReading {
+  day: string
+  kwh: number
+}
+
+/** Bornes Tempo depuis des totaux quotidiens : la couleur du jour est connue, la part
+ * HP/HC ne l'est pas. Les jours sans couleur connue sont comptés à part, jamais estimés. */
+export function rangeTempoDaily(
+  days: readonly DailyReading[],
+  calendar: ReadonlyMap<string, TempoColor>,
+  tariff: TrvTariff,
+): { range: CostRange; uncoveredKwh: number } | null {
+  let min = 0
+  let max = 0
+  let uncoveredKwh = 0
+  for (const d of days) {
+    const color = calendar.get(d.day)
+    if (color === undefined) {
+      uncoveredKwh += d.kwh
+      continue
+    }
+    const target = BUCKET_BY_COLOR[color]
+    const hp = priceOf(tariff, target.hp)
+    const hc = priceOf(tariff, target.hc)
+    if (hp === null || hc === null) return null
+    min += d.kwh * hc
+    max += d.kwh * hp
+  }
+  return { range: range(tariff.fixed_ttc, min, max), uncoveredKwh }
+}
+
+/** Nombre de jours civils entre deux jours « YYYY-MM-DD » inclus. */
+export function calendarDaysInclusive(firstDay: string, lastDay: string): number {
+  const span =
+    (Date.parse(`${lastDay}T00:00:00Z`) - Date.parse(`${firstDay}T00:00:00Z`)) / 86_400_000
+  return Math.max(1, Math.round(span) + 1)
+}
+
 /** Durée couverte en jours (fractionnaire) entre deux instants ISO. */
 export function coveredDays(fromIso: string, toIso: string): number {
   return Math.max(0, (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000)

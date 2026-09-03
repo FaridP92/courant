@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TempoCalendarDay, TrvTariff } from '../lib/api.ts'
+import { enedisDailyXlsx } from '../lib/__fixtures__/enedisXlsx.ts'
 import { CompareSection } from './CompareSection.tsx'
 
 const tariff = (
@@ -51,14 +52,18 @@ const CSV = [
   '2026-01-06T18:30:00+01:00;6000',
 ].join('\n')
 
-const importCsv = async (text: string) => {
+const importFile = async (file: File) => {
   fireEvent.click(screen.getByRole('button', { name: /Importer mon export Enedis/ }))
-  const file = new File([text], 'Enedis_Conso_Heure.csv', { type: 'text/csv' })
-  fireEvent.change(screen.getByLabelText(/Fichier CSV Enedis/), { target: { files: [file] } })
+  fireEvent.change(screen.getByLabelText(/Fichier Enedis/), { target: { files: [file] } })
   await waitFor(() => {
     expect(screen.queryByRole('table') ?? screen.queryByRole('alert')).not.toBeNull()
   })
 }
+
+const importCsv = (text: string) =>
+  importFile(new File([text], 'Enedis_Conso_Heure.csv', { type: 'text/csv' }))
+
+const dailyXlsxFile = () => new File([enedisDailyXlsx()], 'Export_energie_Consommation.xlsx')
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -162,7 +167,7 @@ describe('CompareSection', () => {
   it('import illisible : message honnête, aucun tableau', async () => {
     render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
     await importCsv('Horodate;Valeur\n2026-01-05T00:00:00+01:00;5')
-    expect(screen.getByRole('alert')).toHaveTextContent(/pas une courbe de charge/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/pas un export Enedis reconnu/)
     expect(screen.queryByRole('table')).toBeNull()
   })
 
@@ -173,6 +178,38 @@ describe('CompareSection', () => {
       /calendrier Tempo indisponible/,
     )
     expect(screen.getByRole('row', { name: /Tarif Bleu Base/ })).toHaveTextContent(/€/)
+  })
+
+  it('export quotidien Excel : Base exact, HP/HC et Tempo en fourchette, plages HC masquées', async () => {
+    const fullCalendar: TempoCalendarDay[] = Array.from({ length: 7 }, (_, i) => ({
+      day: `2026-01-0${String(i + 1)}`,
+      color: i === 6 ? 'RED' : 'BLUE',
+    }))
+    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={fullCalendar} />)
+    await importFile(dailyXlsxFile())
+
+    // 6 jours mesurés sur 7 (le 3 janvier est « NA ») : 27,565 kWh
+    expect(screen.getByText(/27,6 kWh sur 7 jours de données quotidiennes/)).toBeInTheDocument()
+    expect(screen.getByText(/1 jour sans donnée, 1 ligne écartée/)).toBeInTheDocument()
+    // Base exact : 229,68 × 7 / 365 = 4,40 ; 27,565 × 0,1985 = 5,47
+    const base = screen.getByRole('row', { name: /Tarif Bleu Base/ })
+    expect(base).toHaveTextContent(/4,40/)
+    expect(base).toHaveTextContent(/5,47/)
+    // HP/HC : 27,565 × 0,1635 = 4,51 à 27,565 × 0,2081 = 5,74
+    expect(screen.getByRole('row', { name: /Heures creuses/ })).toHaveTextContent(/4,51 € à 5,74 €/)
+    // Tempo : couleurs connues, part HP/HC inconnue : une fourchette aussi
+    expect(screen.getByRole('row', { name: /Tempo/ })).toHaveTextContent(/ à /)
+    expect(screen.getByText(/en fourchette/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Heures creuses de')).toBeNull()
+  })
+
+  it('export quotidien hors calendrier Tempo : la fourchette Tempo est refusée, pas devinée', async () => {
+    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    await importFile(dailyXlsxFile())
+    expect(screen.getByRole('row', { name: /Tempo/ })).toHaveTextContent(
+      /hors du calendrier Tempo connu/,
+    )
+    expect(screen.getByRole('row', { name: /Heures creuses/ })).toHaveTextContent(/ à /)
   })
 
   it('pendant le chargement, la rubrique ne prétend pas que les grilles manquent', () => {

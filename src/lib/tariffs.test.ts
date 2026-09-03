@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { TrvTariff } from './api.ts'
 import {
+  calendarDaysInclusive,
   computeBase,
   computeHphc,
   computeTempo,
   coveredDays,
+  rangeHphc,
+  rangeTempoDaily,
   isInOffPeak,
   isValidWindow,
   minutesOfDay,
@@ -193,6 +196,56 @@ describe('computeTempo', () => {
         trv('TEMPO', { hp_bleu: 0.16 }),
       ),
     ).toBeNull()
+  })
+})
+
+describe('fourchettes sur données quotidiennes', () => {
+  it('HP/HC : du tout-heures-creuses au tout-heures-pleines, colonnes additives', () => {
+    const r = rangeHphc(1000, trv('HPHC', { hp: 0.2081, hc: 0.1635 }))
+    expect(r).toEqual({
+      subscription: 229.68,
+      energyMin: 163.5,
+      energyMax: 208.1,
+      totalMin: 393.18,
+      totalMax: 437.78,
+    })
+    expect(rangeHphc(1000, trv('HPHC', { hp: 0.2081 }))).toBeNull()
+  })
+
+  it('Tempo : la couleur du jour est connue, la part HP/HC ne l est pas', () => {
+    const prices = {
+      hp_bleu: 0.16,
+      hc_bleu: 0.13,
+      hp_blanc: 0.19,
+      hc_blanc: 0.15,
+      hp_rouge: 0.73,
+      hc_rouge: 0.16,
+    }
+    const calendar = new Map([
+      ['2026-01-05', 'BLUE' as const],
+      ['2026-01-06', 'RED' as const],
+    ])
+    const result = rangeTempoDaily(
+      [
+        { day: '2026-01-05', kwh: 10 },
+        { day: '2026-01-06', kwh: 10 },
+        { day: '2026-01-07', kwh: 5 },
+      ],
+      calendar,
+      trv('TEMPO', prices),
+    )
+    if (result === null) throw new Error('fourchette attendue')
+    // min : 10 × 0,13 + 10 × 0,16 = 2,9 ; max : 10 × 0,16 + 10 × 0,73 = 8,9
+    expect(result.range.energyMin).toBeCloseTo(2.9, 2)
+    expect(result.range.energyMax).toBeCloseTo(8.9, 2)
+    expect(result.uncoveredKwh).toBe(5)
+    expect(rangeTempoDaily([{ day: '2026-01-05', kwh: 1 }], calendar, trv('TEMPO', {}))).toBeNull()
+  })
+
+  it('compte les jours civils inclus entre deux dates', () => {
+    expect(calendarDaysInclusive('2026-01-01', '2026-01-01')).toBe(1)
+    expect(calendarDaysInclusive('2026-01-01', '2026-09-02')).toBe(245)
+    expect(calendarDaysInclusive('2026-03-28', '2026-03-30')).toBe(3)
   })
 })
 

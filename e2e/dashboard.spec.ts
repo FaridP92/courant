@@ -403,7 +403,7 @@ test.describe('Dashboard avec données mockées', () => {
       '2026-01-05T01:30:00+01:00;1000',
       '2026-01-05T02:00:00+01:00;1000',
     ].join('\n')
-    await compare.getByLabel(/Fichier CSV Enedis/).setInputFiles({
+    await compare.getByLabel(/Fichier Enedis/).setInputFiles({
       name: 'Enedis_Conso_Heure.csv',
       mimeType: 'text/csv',
       buffer: Buffer.from(csv),
@@ -416,6 +416,25 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(compare.getByRole('row', { name: /Tempo/ })).toContainText(
       'calendrier Tempo indisponible',
     )
+  })
+
+  test('Compare ta conso : classeur Excel quotidien lu localement, fourchettes honnêtes', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    await compare.getByRole('button', { name: 'Importer mon export Enedis' }).click()
+    await compare
+      .getByLabel(/Fichier Enedis/)
+      .setInputFiles('src/lib/__fixtures__/enedis-daily.xlsx')
+
+    await expect(compare.getByText(/kWh sur 7 jours de données quotidiennes/)).toBeVisible()
+    await expect(compare.getByRole('row', { name: /Tarif Bleu Base/ })).toContainText('€')
+    // pas de courbe : heures creuses en fourchette, jamais une valeur inventée
+    await expect(compare.getByRole('row', { name: /Heures creuses/ })).toContainText(' à ')
+    await expect(compare.getByText(/en fourchette/)).toBeVisible()
   })
 
   test('le chat répond aux questions et refuse honnêtement hors périmètre', async ({ page }) => {
