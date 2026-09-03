@@ -71,7 +71,9 @@ function stubApi(handler: (url: string) => unknown) {
               url.includes('v_metropoles_6h') ||
               url.includes('v_ecowatt') ||
               url.includes('v_tempo') ||
-              url.includes('v_brief')
+              url.includes('v_brief') ||
+              url.includes('v_trv_current') ||
+              url.includes('v_tempo_calendar')
               ? []
               : handler(url),
           ),

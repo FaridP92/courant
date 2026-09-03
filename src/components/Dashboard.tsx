@@ -24,7 +24,9 @@ import {
   useNationalLatest,
   useNationalSeries,
   useRegionalData,
+  useTempoCalendar,
   useTempoData,
+  useTrvCurrent,
 } from '../hooks/useNationalData.ts'
 import { nationalExportRows } from '../lib/exports.ts'
 import { territoryKey } from '../lib/territory.ts'
@@ -45,6 +47,7 @@ import { FilterBar } from './FilterBar.tsx'
 import { KpiCard } from './KpiCard.tsx'
 import { BriefSection } from './BriefSection.tsx'
 import { ChatSection } from './ChatSection.tsx'
+import { CompareSection } from './CompareSection.tsx'
 import { ExplorerSection } from './ExplorerSection.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
@@ -430,6 +433,8 @@ export function Dashboard() {
   const ecowattQuery = useEcowattData()
   const tempoQuery = useTempoData()
   const briefQuery = useBriefData()
+  const trvQuery = useTrvCurrent()
+  const tempoCalendarQuery = useTempoCalendar()
   const reduceMotion = usePrefersReducedMotion()
 
   const exploreRegion = (code: string) => {
@@ -544,6 +549,11 @@ export function Dashboard() {
               <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
               <ChatSection />
             </div>
+            <CompareSection
+              tariffs={trvQuery.data ?? []}
+              tariffsStatus={trvQuery.status}
+              calendar={tempoCalendarQuery.data ?? []}
+            />
           </>
         )}
       </main>

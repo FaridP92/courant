@@ -185,6 +185,34 @@ export async function fetchTempo(): Promise<TempoSnapshot | null> {
   return rows[0] ?? null
 }
 
+/** Un tarif réglementé en vigueur (v_trv_current, open data CRE). Abonnement annuel en
+ * euros ; prix du kWh par composante : base | hp, hc | hp_bleu, hc_bleu, hp_blanc,
+ * hc_blanc, hp_rouge, hc_rouge. */
+export interface TrvTariff {
+  option: 'BASE' | 'HPHC' | 'TEMPO'
+  p_souscrite: number
+  date_debut: string
+  fixed_ht: number
+  fixed_ttc: number
+  prices_ht: Record<string, number>
+  prices_ttc: Record<string, number>
+  source_url: string
+  updated_at: string
+}
+
+export interface TempoCalendarDay {
+  day: string
+  color: TempoColor
+}
+
+export async function fetchTrvCurrent(): Promise<TrvTariff[]> {
+  return fetchRows<TrvTariff>('v_trv_current?select=*&order=option.asc,p_souscrite.asc')
+}
+
+export async function fetchTempoCalendar(): Promise<TempoCalendarDay[]> {
+  return fetchRows<TempoCalendarDay>('v_tempo_calendar?select=*&order=day.asc&limit=500')
+}
+
 /** Le brief du matin (v_brief) : prose IA, chiffres calculés en base. */
 export interface DailyBrief {
   day: string

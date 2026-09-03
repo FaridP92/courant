@@ -159,6 +159,60 @@ async function mockApi(page: Page) {
       ],
     }),
   )
+  await page.route('**/rest/v1/v_trv_current**', (route) =>
+    route.fulfill({
+      json: [
+        {
+          option: 'BASE',
+          p_souscrite: 6,
+          date_debut: '2026-08-01',
+          fixed_ht: 142.68,
+          fixed_ttc: 189.98,
+          prices_ht: { base: 0.1348 },
+          prices_ttc: { base: 0.1985 },
+          source_url: 'https://www.cre.fr/x.csv',
+          updated_at: new Date(BASE_TS).toISOString(),
+        },
+        {
+          option: 'HPHC',
+          p_souscrite: 6,
+          date_debut: '2026-08-01',
+          fixed_ht: 150,
+          fixed_ttc: 200,
+          prices_ht: { hp: 0.15, hc: 0.11 },
+          prices_ttc: { hp: 0.2081, hc: 0.1635 },
+          source_url: 'https://www.cre.fr/x.csv',
+          updated_at: new Date(BASE_TS).toISOString(),
+        },
+        {
+          option: 'TEMPO',
+          p_souscrite: 6,
+          date_debut: '2026-08-01',
+          fixed_ht: 142.68,
+          fixed_ttc: 189.98,
+          prices_ht: {
+            hp_bleu: 0.1,
+            hc_bleu: 0.1,
+            hp_blanc: 0.1,
+            hc_blanc: 0.1,
+            hp_rouge: 0.5,
+            hc_rouge: 0.1,
+          },
+          prices_ttc: {
+            hp_bleu: 0.1654,
+            hc_bleu: 0.1356,
+            hp_blanc: 0.1921,
+            hc_blanc: 0.1536,
+            hp_rouge: 0.7295,
+            hc_rouge: 0.1615,
+          },
+          source_url: 'https://www.cre.fr/x.csv',
+          updated_at: new Date(BASE_TS).toISOString(),
+        },
+      ],
+    }),
+  )
+  await page.route('**/rest/v1/v_tempo_calendar**', (route) => route.fulfill({ json: [] }))
   await page.route('**/api/chat', (route) => {
     const body = route.request().postDataJSON() as { question?: string }
     const question = body.question ?? ''
@@ -315,6 +369,22 @@ test.describe('Dashboard avec données mockées', () => {
     await page.keyboard.press('Enter')
     await page.getByRole('button', { name: /Creuser dans l'Explorateur/ }).click()
     await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test('Compare ta conso : saisie manuelle, abonnement et total au tarif réglementé', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    await compare.getByLabel('Consommation annuelle (kWh)').fill('4500')
+    // 189,98 + 4500 × 0,1985 = 1 083,23 ; l'abonnement a sa propre colonne
+    const base = compare.getByRole('row', { name: /Tarif Bleu Base/ })
+    await expect(base).toContainText('189,98')
+    await expect(base).toContainText('1 083,23')
+    // Tempo dit pourquoi il manque plutôt que d'inventer
+    await expect(compare.getByRole('row', { name: /Tempo/ })).toContainText('courbe de charge')
   })
 
   test('le chat répond aux questions et refuse honnêtement hors périmètre', async ({ page }) => {

@@ -9,6 +9,8 @@ import {
   fetchRegionalLatest,
   fetchRegionalSeries,
   fetchTempo,
+  fetchTempoCalendar,
+  fetchTrvCurrent,
   type NationalRange,
 } from '../lib/api.ts'
 import { REFRESH_INTERVAL_MS } from '../lib/config.ts'
@@ -62,6 +64,23 @@ export function useTempoData() {
     queryKey: ['tempo'],
     queryFn: fetchTempo,
     refetchInterval: REFRESH_INTERVAL_MS,
+  })
+}
+
+/** Grilles TRV en vigueur et calendrier Tempo : changent rarement, une heure de cache suffit. */
+export function useTrvCurrent() {
+  return useQuery({
+    queryKey: ['trv-current'],
+    queryFn: fetchTrvCurrent,
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+export function useTempoCalendar() {
+  return useQuery({
+    queryKey: ['tempo-calendar'],
+    queryFn: fetchTempoCalendar,
+    staleTime: 60 * 60 * 1000,
   })
 }
 
