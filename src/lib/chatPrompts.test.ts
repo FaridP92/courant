@@ -23,6 +23,9 @@ describe('prompts', () => {
     expect(system).toContain('chat.tempo_days')
     expect(system).toContain('Europe/Paris')
     expect(system).toContain('LIMIT')
+    // les lignes de prévision sont nulles : « en ce moment » ne doit jamais être max(ts)
+    expect(system).toContain('jamais max(ts)')
+    expect(system).toContain('ts_paris')
     expect(messages[1]?.content).toContain('Record de consommation cet hiver ?')
   })
 
