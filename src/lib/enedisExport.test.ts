@@ -225,6 +225,51 @@ describe('export quotidien', () => {
   })
 })
 
+describe('refus honnêtes issus de la revue', () => {
+  it('refuse une production signalée seulement par la colonne « Grandeur metier »', () => {
+    const outcome = parseEnedisCsv(PREAMBLE_FORMAT.replace(';Consommation;', ';Production;'))
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.reason).toMatch(/production/)
+  })
+
+  it('refuse un fichier composite (bloc quotidien puis bloc courbe) au lieu d en perdre un', () => {
+    const text = [
+      'Type de comptage : ;Consommation Quotidienne',
+      'Date;Valeur (en kWh)',
+      '01/03/2026;5',
+      '02/03/2026;7',
+      '',
+      HEADER,
+      '2026-03-03T00:30:00+01:00;1200',
+      '2026-03-03T01:00:00+01:00;800',
+    ].join('\n')
+    const outcome = parseEnedisCsv(text)
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.reason).toMatch(/composite/)
+  })
+
+  it('refuse des horodatages de courbe en numéro de série Excel (fuseau inconnu), avec un message dédié', () => {
+    const outcome = parseEnedisRows([
+      ['horodate ISO fin de pas', 'valeur (en kWh)'],
+      [46027.020833, 0.6],
+      [46027.041666, 0.4],
+    ])
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.reason).toMatch(/dates Excel numériques/)
+  })
+
+  it('un numéro de série date-heure garde le jour de sa partie entière', () => {
+    const outcome = parseEnedisRows([
+      ['Date', 'Valeur (en kWh)'],
+      [46023.54, 1],
+      [46024.9, 2],
+    ])
+    if (!outcome.ok) throw new Error(outcome.reason)
+    if (outcome.result.kind !== 'daily') throw new Error('quotidien attendu')
+    expect(outcome.result.days.map((d) => d.day)).toEqual(['2026-01-01', '2026-01-02'])
+  })
+})
+
 describe('parseEnedisBuffer', () => {
   it('reconnaît un classeur à sa signature zip et un CSV au texte', async () => {
     const xlsx = await parseEnedisBuffer(fixture('enedis-daily.xlsx'))

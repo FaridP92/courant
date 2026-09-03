@@ -145,7 +145,7 @@ describe('CompareSection', () => {
     await importCsv(CSV)
 
     // 1 kWh HP bleu + 2 kWh HC bleu + 3 kWh HP rouge = 6 kWh, du 5/1 11:30 au 6/1 18:30 : 31 h
-    expect(screen.getByText(/6,0 kWh sur 1 jour,/)).toBeInTheDocument()
+    expect(screen.getByText(/6,0 kWh sur 31 h,/)).toBeInTheDocument()
     const tempo = screen.getByRole('row', { name: /Tempo/ })
     // énergie : 1 × 0,1654 + 2 × 0,1356 + 3 × 0,7295 = 2,63 ; abonnement 31 h : 189,98 × (31/24) / 365 = 0,67
     expect(tempo).toHaveTextContent(/2,63/)
@@ -189,8 +189,14 @@ describe('CompareSection', () => {
     await importFile(dailyXlsxFile())
 
     // 6 jours mesurés sur 7 (le 3 janvier est « NA ») : 27,565 kWh
-    expect(screen.getByText(/27,6 kWh sur 7 jours de données quotidiennes/)).toBeInTheDocument()
-    expect(screen.getByText(/1 jour sans donnée, 1 ligne écartée/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /27,6 kWh sur 6 jours mesurés \(période de 7 jours civils, 1 jour sans donnée, 1 ligne écartée\)/,
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Énergie sur les 6 jours mesurés, abonnement sur les 7 jours/),
+    ).toBeInTheDocument()
     // Base exact : 229,68 × 7 / 365 = 4,40 ; 27,565 × 0,1985 = 5,47
     const base = screen.getByRole('row', { name: /Tarif Bleu Base/ })
     expect(base).toHaveTextContent(/4,40/)

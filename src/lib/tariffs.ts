@@ -233,8 +233,9 @@ export function rangeTempoDaily(
     const hp = priceOf(tariff, target.hp)
     const hc = priceOf(tariff, target.hc)
     if (hp === null || hc === null) return null
-    min += d.kwh * hc
-    max += d.kwh * hp
+    // bornes exactes jour par jour, même si une grille avait un prix HC supérieur au HP
+    min += d.kwh * Math.min(hp, hc)
+    max += d.kwh * Math.max(hp, hc)
   }
   return { range: range(tariff.fixed_ttc, min, max), uncoveredKwh }
 }
@@ -252,7 +253,10 @@ export function coveredDays(fromIso: string, toIso: string): number {
 }
 
 /** Longueur de l'année de référence pour un prorata : 366 si la période
- * contient un 29 février, 365 sinon. */
+ * contient un 29 février, 365 sinon. Approximation assumée : une période d'année
+ * bissextile qui évite le 29 février est proratisée sur 365 jours, soit un
+ * abonnement surévalué d'au plus 0,3 % ; l'abonnement réglementé étant facturé
+ * par jour selon le fournisseur, aucune règle n'est exacte pour tous. */
 export function yearLengthFor(fromIso: string, toIso: string): 365 | 366 {
   const from = new Date(fromIso)
   const to = new Date(toIso)

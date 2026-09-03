@@ -409,7 +409,7 @@ test.describe('Dashboard avec données mockées', () => {
       buffer: Buffer.from(csv),
     })
 
-    await expect(compare.getByText(/2,0 kWh sur 1 jour/)).toBeVisible()
+    await expect(compare.getByText(/2,0 kWh sur 2 h/)).toBeVisible()
     await expect(compare.getByRole('row', { name: /Tarif Bleu Base/ })).toContainText('€')
     await expect(compare.getByText(/abonnement au prorata/)).toBeVisible()
     // calendrier Tempo mocké vide : la ligne Tempo le dit au lieu d'inventer
@@ -430,7 +430,7 @@ test.describe('Dashboard avec données mockées', () => {
       .getByLabel(/Fichier Enedis/)
       .setInputFiles('src/lib/__fixtures__/enedis-daily.xlsx')
 
-    await expect(compare.getByText(/kWh sur 7 jours de données quotidiennes/)).toBeVisible()
+    await expect(compare.getByText(/kWh sur 6 jours mesurés/)).toBeVisible()
     await expect(compare.getByRole('row', { name: /Tarif Bleu Base/ })).toContainText('€')
     // pas de courbe : heures creuses en fourchette, jamais une valeur inventée
     await expect(compare.getByRole('row', { name: /Heures creuses/ })).toContainText(' à ')

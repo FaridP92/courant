@@ -67,7 +67,12 @@ const positive = (raw: string): number => {
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
-const plural = (n: number, word: string): string => `${String(n)} ${word}${n > 1 ? 's' : ''}`
+/** « 1 ligne écartée » / « 3 lignes écartées » : nom et participe accordés ensemble. */
+const count = (n: number, one: string, many: string): string => `${String(n)} ${n > 1 ? many : one}`
+
+/** Durée couverte lisible : en heures sous deux jours, sinon en jours arrondis. */
+const periodLabel = (days: number): string =>
+  days < 2 ? `${String(Math.round(days * 24))} h` : count(Math.round(days), 'jour', 'jours')
 
 function CostCell({ value, range }: { value: number | null; range: [number, number] | null }) {
   let content: ReactNode
@@ -276,37 +281,42 @@ export function CompareSection({
     setFileError(null)
     if (file === undefined) return
     const reader = new FileReader()
+    // seul le dernier fichier déposé compte, y compris pour ses erreurs de lecture
+    const current = () => seq === fileSeq.current
     reader.onload = () => {
       const buffer = reader.result
       if (!(buffer instanceof ArrayBuffer)) {
-        setFileError('Impossible de lire ce fichier.')
+        if (current()) setFileError('Impossible de lire ce fichier.')
         return
       }
       void parseEnedisBuffer(buffer).then((outcome) => {
-        if (seq !== fileSeq.current) return
+        if (!current()) return
         if (outcome.ok) setData(outcome.result)
         else setFileError(outcome.reason)
       })
     }
     reader.onerror = () => {
-      setFileError('Impossible de lire ce fichier.')
+      if (current()) setFileError('Impossible de lire ce fichier.')
     }
     reader.readAsArrayBuffer(file)
   }
 
   const gridDate = tariffs[0]?.date_debut ?? null
-  const displayDays = period === null ? null : Math.max(1, Math.round(period.days))
+  const periodText = period === null ? null : periodLabel(period.days)
+  const missingDays = daily === null ? 0 : daily.dayCount - daily.days.length
+  const skippedText = (n: number) => count(n, 'ligne écartée', 'lignes écartées')
 
   let summary: string | null = null
-  if (curve !== null && displayDays !== null) {
-    summary = `${kwhFormat.format(curve.totalKwh)} kWh sur ${plural(displayDays, 'jour')}, du ${formatParisDate(curve.from)} au ${formatParisDate(curve.to)}, pas de ${String(curve.stepMinutes)} min${curve.skippedRows > 0 ? ` (${plural(curve.skippedRows, 'ligne')} écartées)` : ''}.`
+  if (curve !== null && periodText !== null) {
+    summary = `${kwhFormat.format(curve.totalKwh)} kWh sur ${periodText}, du ${formatParisDate(curve.from)} au ${formatParisDate(curve.to)}, pas de ${String(curve.stepMinutes)} min${curve.skippedRows > 0 ? ` (${skippedText(curve.skippedRows)})` : ''}.`
   } else if (daily !== null) {
-    const missing = daily.dayCount - daily.days.length
-    const notes = [
-      missing > 0 ? `${plural(missing, 'jour')} sans donnée` : null,
-      daily.skippedRows > 0 ? `${plural(daily.skippedRows, 'ligne')} écartées` : null,
-    ].filter((n) => n !== null)
-    summary = `${kwhFormat.format(daily.totalKwh)} kWh sur ${plural(daily.dayCount, 'jour')} de données quotidiennes, du ${formatParisDate(`${daily.firstDay}T12:00:00Z`)} au ${formatParisDate(`${daily.lastDay}T12:00:00Z`)}${notes.length > 0 ? ` (${notes.join(', ')})` : ''}.`
+    const span = `du ${formatParisDate(`${daily.firstDay}T12:00:00Z`)} au ${formatParisDate(`${daily.lastDay}T12:00:00Z`)}`
+    const skipped = daily.skippedRows > 0 ? `, ${skippedText(daily.skippedRows)}` : ''
+    // des jours manquent : l'énergie porte sur les jours mesurés, l'abonnement sur la période
+    summary =
+      missingDays > 0
+        ? `${kwhFormat.format(daily.totalKwh)} kWh sur ${count(daily.days.length, 'jour mesuré', 'jours mesurés')} (période de ${count(daily.dayCount, 'jour civil', 'jours civils')}, ${count(missingDays, 'jour sans donnée', 'jours sans donnée')}${skipped}), ${span}.`
+        : `${kwhFormat.format(daily.totalKwh)} kWh sur ${count(daily.dayCount, 'jour', 'jours')} de données quotidiennes, ${span}${daily.skippedRows > 0 ? ` (${skippedText(daily.skippedRows)})` : ''}.`
   }
 
   let body: ReactNode
@@ -527,10 +537,12 @@ export function CompareSection({
                     ))}
                   </tbody>
                 </table>
-                {mode === 'file' && displayDays !== null && (
+                {mode === 'file' && periodText !== null && (
                   <p className="mt-1 font-data text-[10.5px] text-ink-40">
-                    Coûts sur la période du fichier ({plural(displayDays, 'jour')}), abonnement au
-                    prorata.
+                    Coûts sur la période du fichier ({periodText}), abonnement au prorata.
+                    {missingDays > 0 &&
+                      daily !== null &&
+                      ` Énergie sur les ${count(daily.days.length, 'jour mesuré', 'jours mesurés')}, abonnement sur les ${count(daily.dayCount, 'jour', 'jours')} de la période.`}
                     {daily !== null &&
                       ' Données quotidiennes : heures creuses et Tempo en fourchette, du tout-heures-creuses au tout-heures-pleines. Pour une valeur exacte, activez l’enregistrement de la consommation horaire dans votre espace Enedis, puis exportez la courbe au pas de 30 minutes.'}
                   </p>

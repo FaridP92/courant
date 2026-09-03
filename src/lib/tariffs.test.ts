@@ -242,6 +242,32 @@ describe('fourchettes sur données quotidiennes', () => {
     expect(rangeTempoDaily([{ day: '2026-01-05', kwh: 1 }], calendar, trv('TEMPO', {}))).toBeNull()
   })
 
+  it('Tempo : les bornes restent exactes jour par jour même si une grille inversait HC et HP', () => {
+    const odd = {
+      hp_bleu: 0.16,
+      hc_bleu: 0.13,
+      hp_blanc: 0.19,
+      hc_blanc: 0.15,
+      hp_rouge: 0.2,
+      hc_rouge: 0.73,
+    }
+    const calendar = new Map([
+      ['2026-01-05', 'BLUE' as const],
+      ['2026-01-06', 'RED' as const],
+    ])
+    const result = rangeTempoDaily(
+      [
+        { day: '2026-01-05', kwh: 10 },
+        { day: '2026-01-06', kwh: 10 },
+      ],
+      calendar,
+      trv('TEMPO', odd),
+    )
+    // min : 10 × 0,13 + 10 × 0,20 = 3,30 ; max : 10 × 0,16 + 10 × 0,73 = 8,90
+    expect(result?.range.energyMin).toBeCloseTo(3.3, 2)
+    expect(result?.range.energyMax).toBeCloseTo(8.9, 2)
+  })
+
   it('compte les jours civils inclus entre deux dates', () => {
     expect(calendarDaysInclusive('2026-01-01', '2026-01-01')).toBe(1)
     expect(calendarDaysInclusive('2026-01-01', '2026-09-02')).toBe(245)

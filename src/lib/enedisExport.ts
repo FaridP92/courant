@@ -104,7 +104,7 @@ function preambleValue(rows: readonly CellValue[][], before: number, label: stri
 function parseDay(cell: CellValue | undefined): string | null {
   if (typeof cell === 'number' && Number.isFinite(cell)) {
     // les dates Excel comptent les jours depuis le 30/12/1899
-    const ms = Date.UTC(1899, 11, 30) + Math.round(cell) * 86_400_000
+    const ms = Date.UTC(1899, 11, 30) + Math.floor(cell) * 86_400_000
     return new Date(ms).toISOString().slice(0, 10)
   }
   const s = text(cell)
@@ -147,6 +147,12 @@ function parseCurve(
   let skippedRows = 0
   for (const row of rows.slice(headerIndex + 1)) {
     if (row.every((c) => text(c) === '')) continue
+    if (typeof row[tsCol] === 'number') {
+      return refuse(
+        'Les horodatages de ce classeur sont des dates Excel numériques, sans fuseau horaire : ' +
+          'exportez la courbe en CSV depuis l’espace Enedis.',
+      )
+    }
     const endMs = Date.parse(text(row[tsCol]))
     const value = parseNumber(row[valueCol])
     if (!Number.isNaN(endMs)) gridMs.add(endMs)
@@ -258,13 +264,20 @@ export function parseEnedisRows(rows: readonly CellValue[][]): EnedisParseOutcom
   const dailyHeader = normalized.findIndex(
     (row) => row.includes('date') && row.some((c) => c.includes('valeur')),
   )
+  if (curveHeader !== -1 && dailyHeader !== -1) {
+    return refuse(
+      'Fichier composite (plusieurs séries dans le même export) non pris en charge : exportez une seule série.',
+    )
+  }
   const headerIndex = curveHeader !== -1 ? curveHeader : dailyHeader
   if (headerIndex === -1) return refuse(NEED_EXPORT)
 
   const kind =
     preambleValue(rows, headerIndex, 'type de comptage') ??
     preambleValue(rows, headerIndex, 'type de donnees')
-  if (kind !== null && normalize(kind).includes('production')) {
+  // la nature de la série se lit aussi dans « Grandeur metier » (Consommation / Production)
+  const nature = `${kind ?? ''} ${preambleValue(rows, headerIndex, 'grandeur metier') ?? ''}`
+  if (/production|injection/.test(normalize(nature))) {
     return refuse('Ce fichier contient une production, pas une consommation.')
   }
   if (kind !== null && curveHeader === -1 && !normalize(kind).includes('quotidien')) {
