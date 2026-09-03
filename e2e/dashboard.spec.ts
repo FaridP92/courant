@@ -387,6 +387,37 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(compare.getByRole('row', { name: /Tempo/ })).toContainText('courbe de charge')
   })
 
+  test('Compare ta conso : import Enedis lu localement, coûts sur la période du fichier', async ({
+    page,
+  }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    await compare.getByRole('button', { name: 'Importer mon export Enedis' }).click()
+    // quatre pas de 30 min à 1 000 W = 2 kWh, le fichier reste dans le navigateur
+    const csv = [
+      'horodate ISO fin de pas;puissance moyenne (W)',
+      '2026-01-05T00:30:00+01:00;1000',
+      '2026-01-05T01:00:00+01:00;1000',
+      '2026-01-05T01:30:00+01:00;1000',
+      '2026-01-05T02:00:00+01:00;1000',
+    ].join('\n')
+    await compare.getByLabel(/Fichier CSV Enedis/).setInputFiles({
+      name: 'Enedis_Conso_Heure.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv),
+    })
+
+    await expect(compare.getByText(/2,0 kWh sur 1 jour/)).toBeVisible()
+    await expect(compare.getByRole('row', { name: /Tarif Bleu Base/ })).toContainText('€')
+    await expect(compare.getByText(/abonnement au prorata/)).toBeVisible()
+    // calendrier Tempo mocké vide : la ligne Tempo le dit au lieu d'inventer
+    await expect(compare.getByRole('row', { name: /Tempo/ })).toContainText(
+      'calendrier Tempo indisponible',
+    )
+  })
+
   test('le chat répond aux questions et refuse honnêtement hors périmètre', async ({ page }) => {
     await mockApi(page)
     await page.goto('/')

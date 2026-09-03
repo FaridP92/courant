@@ -6,18 +6,24 @@
 import type { TempoColor, TrvTariff } from './api.ts'
 
 export interface CostBreakdown {
-  /** Abonnement annuel TTC. */
+  /** Abonnement TTC sur la période calculée. */
   subscription: number
   /** Coût des kWh TTC. */
   energy: number
   total: number
 }
 
-/** Plage d'heures creuses [from, to) en heures de Paris ; peut traverser minuit. */
+/** Plage d'heures creuses [from, to) en minutes depuis minuit, heure de Paris ;
+ * peut traverser minuit. Une plage vide (from === to) n'est pas valide. */
 export interface OffPeakWindow {
   from: number
   to: number
 }
+
+const MINUTES_PER_DAY = 24 * 60
+
+/** Heures creuses de l'option Tempo : fixées par le tarif réglementé, 22 h à 6 h. */
+export const TEMPO_OFF_PEAK: readonly OffPeakWindow[] = [{ from: 22 * 60, to: 6 * 60 }]
 
 /** Une énergie consommée sur un pas, horodatée au DÉBUT du pas (ISO). */
 export interface Reading {
@@ -39,17 +45,23 @@ export const EMPTY_TEMPO_BUCKETS: TempoBuckets = {
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
 
+/** Les deux postes sont arrondis d'abord, le total est leur somme : les trois
+ * colonnes affichées s'additionnent toujours. */
 function breakdown(subscription: number, energy: number): CostBreakdown {
-  return {
-    subscription: round2(subscription),
-    energy: round2(energy),
-    total: round2(subscription + energy),
-  }
+  const sub = round2(subscription)
+  const nrg = round2(energy)
+  return { subscription: sub, energy: nrg, total: round2(sub + nrg) }
+}
+
+/** Un prix absent, null ou non fini vaut « pas de calcul », jamais 0. */
+function priceOf(tariff: TrvTariff, key: string): number | null {
+  const price: unknown = tariff.prices_ttc[key]
+  return typeof price === 'number' && Number.isFinite(price) ? price : null
 }
 
 export function computeBase(kwh: number, tariff: TrvTariff): CostBreakdown | null {
-  const price = tariff.prices_ttc.base
-  if (price === undefined) return null
+  const price = priceOf(tariff, 'base')
+  if (price === null) return null
   return breakdown(tariff.fixed_ttc, kwh * price)
 }
 
@@ -57,26 +69,42 @@ export function computeHphc(
   split: { hp: number; hc: number },
   tariff: TrvTariff,
 ): CostBreakdown | null {
-  const hp = tariff.prices_ttc.hp
-  const hc = tariff.prices_ttc.hc
-  if (hp === undefined || hc === undefined) return null
+  const hp = priceOf(tariff, 'hp')
+  const hc = priceOf(tariff, 'hc')
+  if (hp === null || hc === null) return null
   return breakdown(tariff.fixed_ttc, split.hp * hp + split.hc * hc)
 }
 
 export function computeTempo(buckets: TempoBuckets, tariff: TrvTariff): CostBreakdown | null {
   let energy = 0
   for (const key of Object.keys(EMPTY_TEMPO_BUCKETS) as TempoBucket[]) {
-    const price = tariff.prices_ttc[key]
-    if (price === undefined) return null
+    const price = priceOf(tariff, key)
+    if (price === null) return null
     energy += buckets[key] * price
   }
   return breakdown(tariff.fixed_ttc, energy)
 }
 
-export function isInOffPeak(hour: number, windows: readonly OffPeakWindow[]): boolean {
-  return windows.some((w) =>
-    w.from < w.to ? hour >= w.from && hour < w.to : hour >= w.from || hour < w.to,
-  )
+/** « HH:MM » en minutes depuis minuit, null si illisible. */
+export function minutesOfDay(hhmm: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim())
+  if (match === null) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+export function isValidWindow(window: OffPeakWindow): boolean {
+  const inDay = (m: number) => Number.isInteger(m) && m >= 0 && m < MINUTES_PER_DAY
+  return inDay(window.from) && inDay(window.to) && window.from !== window.to
+}
+
+export function isInOffPeak(minutes: number, windows: readonly OffPeakWindow[]): boolean {
+  return windows.some((w) => {
+    if (!isValidWindow(w)) return false
+    return w.from < w.to ? minutes >= w.from && minutes < w.to : minutes >= w.from || minutes < w.to
+  })
 }
 
 const parisDay = new Intl.DateTimeFormat('en-CA', {
@@ -85,23 +113,25 @@ const parisDay = new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
   day: '2-digit',
 })
-const parisHour = new Intl.DateTimeFormat('fr-FR', {
+const parisClock = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris',
   hour: 'numeric',
+  minute: 'numeric',
   hourCycle: 'h23',
 })
 
-/** Jour civil et heure de Paris d'un horodatage : le calendrier Tempo et les
- * plages HC vivent dans ce fuseau, jamais en UTC. L'heure se lit par
- * formatToParts : le format texte ajoute « h » en français. */
-export function parisParts(ts: string): { day: string; hour: number } {
+/** Jour civil et minute de la journée en heure de Paris : le calendrier Tempo et
+ * les plages HC vivent dans ce fuseau, jamais en UTC. Lecture par formatToParts :
+ * le format texte français ajoute « h » et des séparateurs. */
+export function parisParts(ts: string): { day: string; minutes: number } {
   const date = new Date(ts)
-  const hourPart = parisHour.formatToParts(date).find((p) => p.type === 'hour')
-  return { day: parisDay.format(date), hour: Number(hourPart?.value ?? Number.NaN) }
-}
-
-export function sumKwh(readings: readonly Reading[]): number {
-  return readings.reduce((s, r) => s + r.kwh, 0)
+  let hour = Number.NaN
+  let minute = Number.NaN
+  for (const part of parisClock.formatToParts(date)) {
+    if (part.type === 'hour') hour = Number(part.value)
+    if (part.type === 'minute') minute = Number(part.value)
+  }
+  return { day: parisDay.format(date), minutes: hour * 60 + minute }
 }
 
 export function splitHphc(
@@ -111,7 +141,7 @@ export function splitHphc(
   let hp = 0
   let hc = 0
   for (const r of readings) {
-    if (isInOffPeak(parisParts(r.ts).hour, windows)) hc += r.kwh
+    if (isInOffPeak(parisParts(r.ts).minutes, windows)) hc += r.kwh
     else hp += r.kwh
   }
   return { hp, hc }
@@ -124,23 +154,42 @@ const BUCKET_BY_COLOR: Record<TempoColor, { hp: TempoBucket; hc: TempoBucket }> 
 }
 
 /** Répartit les kWh dans les six paniers Tempo depuis le calendrier RÉEL des
- * couleurs. Les jours sans couleur connue sont comptés à part : jamais estimés. */
+ * couleurs et les heures creuses réglementaires de l'option. Les jours sans
+ * couleur connue sont comptés à part : jamais estimés. */
 export function splitByTempo(
   readings: readonly Reading[],
   calendar: ReadonlyMap<string, TempoColor>,
-  windows: readonly OffPeakWindow[],
+  windows: readonly OffPeakWindow[] = TEMPO_OFF_PEAK,
 ): { buckets: TempoBuckets; uncoveredKwh: number } {
   const buckets: TempoBuckets = { ...EMPTY_TEMPO_BUCKETS }
   let uncoveredKwh = 0
   for (const r of readings) {
-    const { day, hour } = parisParts(r.ts)
+    const { day, minutes } = parisParts(r.ts)
     const color = calendar.get(day)
     if (color === undefined) {
       uncoveredKwh += r.kwh
       continue
     }
     const target = BUCKET_BY_COLOR[color]
-    buckets[isInOffPeak(hour, windows) ? target.hc : target.hp] += r.kwh
+    buckets[isInOffPeak(minutes, windows) ? target.hc : target.hp] += r.kwh
   }
   return { buckets, uncoveredKwh }
+}
+
+/** Durée couverte en jours (fractionnaire) entre deux instants ISO. */
+export function coveredDays(fromIso: string, toIso: string): number {
+  return Math.max(0, (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000)
+}
+
+/** Longueur de l'année de référence pour un prorata : 366 si la période
+ * contient un 29 février, 365 sinon. */
+export function yearLengthFor(fromIso: string, toIso: string): 365 | 366 {
+  const from = new Date(fromIso)
+  const to = new Date(toIso)
+  for (let year = from.getUTCFullYear(); year <= to.getUTCFullYear(); year += 1) {
+    const leapDay = Date.UTC(year, 1, 29)
+    if (new Date(leapDay).getUTCMonth() !== 1) continue
+    if (leapDay >= from.getTime() && leapDay <= to.getTime()) return 366
+  }
+  return 365
 }

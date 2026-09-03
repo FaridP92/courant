@@ -209,8 +209,13 @@ export async function fetchTrvCurrent(): Promise<TrvTariff[]> {
   return fetchRows<TrvTariff>('v_trv_current?select=*&order=option.asc,p_souscrite.asc')
 }
 
+/** Les jours les plus récents d'abord puis remis dans l'ordre : si le plafond
+ * PostgREST tronquait, ce seraient les jours anciens qui manqueraient. */
 export async function fetchTempoCalendar(): Promise<TempoCalendarDay[]> {
-  return fetchRows<TempoCalendarDay>('v_tempo_calendar?select=*&order=day.asc&limit=500')
+  const rows = await fetchRows<TempoCalendarDay>(
+    'v_tempo_calendar?select=*&order=day.desc&limit=500',
+  )
+  return [...rows].reverse()
 }
 
 /** Le brief du matin (v_brief) : prose IA, chiffres calculés en base. */
