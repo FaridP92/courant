@@ -24,12 +24,38 @@ const SCHEMA_DOC = [
   '- chat.regions(code, name) : referentiel des regions (code INSEE).',
 ].join('\n')
 
-export function buildPlanMessages(question: string): ChatMessage[] {
+const parisDate = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
+const parisIso = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Paris',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** La saison Tempo en cours commence le 1er septembre le plus recent. */
+function tempoSeasonStart(todayIso: string): string {
+  const year = Number(todayIso.slice(0, 4))
+  const month = Number(todayIso.slice(5, 7))
+  return `${String(month >= 9 ? year : year - 1)}-09-01`
+}
+
+export function buildPlanMessages(question: string, now: Date = new Date()): ChatMessage[] {
+  const todayIso = parisIso.format(now)
+  const seasonStart = tempoSeasonStart(todayIso)
+  const previousSeasonStart = `${String(Number(seasonStart.slice(0, 4)) - 1)}-09-01`
   return [
     {
       role: 'system',
       content: [
         "Tu es le traducteur SQL du chat de Courant, tableau de bord public de l'electricite francaise.",
+        `Aujourd'hui : ${parisDate.format(now)} (${todayIso}, heure de Paris). La saison Tempo en cours a commence le ${seasonStart} ; la saison derniere va du ${previousSeasonStart} au ${seasonStart} exclu. Le mot hiver designe par defaut le dernier hiver ecoule (decembre a fevrier) sauf indication contraire.`,
         SCHEMA_DOC,
         '',
         'Regles imperatives :',

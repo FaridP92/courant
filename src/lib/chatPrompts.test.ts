@@ -16,8 +16,15 @@ describe('parsePlan', () => {
 })
 
 describe('prompts', () => {
-  it('le prompt de plan contient le schéma, les règles et la question', () => {
-    const messages = buildPlanMessages('Record de consommation cet hiver ?')
+  it('le prompt de plan contient le schéma, les règles, la date du jour et la question', () => {
+    const messages = buildPlanMessages(
+      'Record de consommation cet hiver ?',
+      new Date('2026-09-03T10:00:00Z'),
+    )
+    // le modèle ne connaît pas la date : on la lui donne, avec les bornes de saison Tempo
+    expect(messages[0]?.content).toContain('2026-09-03')
+    expect(messages[0]?.content).toContain('a commence le 2026-09-01')
+    expect(messages[0]?.content).toContain('du 2025-09-01 au 2026-09-01 exclu')
     const system = messages[0]?.content ?? ''
     expect(system).toContain('chat.national')
     expect(system).toContain('chat.tempo_days')
