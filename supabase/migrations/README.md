@@ -25,6 +25,9 @@ reproductibilité. L'ordre des fichiers est l'ordre d'application.
 | 0016_explorer_territory_series.sql | Séries par territoire pour l'Explorateur : v_regional_24h/7d/30d, v_metropoles_7d |
 | 0017_anchor_territory_windows.sql | Fenêtres régionales ancrées sur le dernier point publié, grants alignés |
 | 0018_daily_brief_foundation.sql | Brief du matin : faits SQL de la veille, table des briefs, RPC et v_brief |
+| 0019_chat_foundation.sql | Chat : schéma de vues whitelistées, rôle read_only_chat, run_chat_query, journal |
+| 0020_chat_function_owner.sql | Correctif : run_chat_query appartient à read_only_chat (SET ROLE interdit en definer) |
+| 0021_chat_log_retention.sql | Journal du chat : purge opportuniste à 90 jours (minimisation RGPD) |
 
 Conventions : colonnes de mesures aux noms exacts des champs ODRÉ (contrat de source,
 introspection du 2026-08-28, voir ADR-0003) ; identifiants structurels en anglais.
