@@ -25,6 +25,9 @@ import {
  */
 
 type QueryStatus = 'pending' | 'error' | 'success'
+
+/** Puissance la plus répandue chez les particuliers. */
+const DEFAULT_POWER_KVA = 6
 type Mode = 'manual' | 'file'
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -117,10 +120,10 @@ export function CompareSection({
     () => [...new Set(tariffs.map((t) => t.p_souscrite))].sort((a, b) => a - b),
     [tariffs],
   )
-  // la puissance calculée est toujours celle affichée : un choix absent des grilles
-  // retombe sur la première puissance disponible
-  const power =
-    powerChoice !== null && powers.includes(powerChoice) ? powerChoice : (powers[0] ?? null)
+  // la puissance calculée est toujours celle affichée : par défaut 6 kVA (la plus
+  // courante), sinon la première puissance disponible
+  const fallbackPower = powers.includes(DEFAULT_POWER_KVA) ? DEFAULT_POWER_KVA : (powers[0] ?? null)
+  const power = powerChoice !== null && powers.includes(powerChoice) ? powerChoice : fallbackPower
 
   const calendarMap = useMemo(
     () => new Map(calendar.map((d) => [d.day, d.color] as const)),

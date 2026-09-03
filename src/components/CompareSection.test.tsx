@@ -91,6 +91,17 @@ describe('CompareSection', () => {
     expect(screen.getByRole('row', { name: /Tarif Bleu Base/ })).toHaveTextContent(/288,12/)
   })
 
+  it('6 kVA est la puissance par défaut même si la grille commence à 3 kVA', () => {
+    render(
+      <CompareSection
+        tariffs={[tariff('BASE', 120, { base: 0.1985 }, 3), ...tariffs]}
+        tariffsStatus="success"
+        calendar={calendar}
+      />,
+    )
+    expect(screen.getByLabelText('Puissance souscrite')).toHaveValue('6')
+  })
+
   it('la puissance affichée est toujours celle calculée, même sans 6 kVA dans les grilles', () => {
     render(
       <CompareSection
