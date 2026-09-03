@@ -159,6 +159,25 @@ async function mockApi(page: Page) {
       ],
     }),
   )
+  await page.route('**/api/chat', (route) => {
+    const body = route.request().postDataJSON() as { question?: string }
+    const question = body.question ?? ''
+    if (/m\u00e9t\u00e9o|meteo/i.test(question)) {
+      return route.fulfill({
+        json: {
+          answer:
+            'Je ne couvre que les donn\u00e9es \u00e9lectriques publiques du tableau de bord.',
+        },
+      })
+    }
+    return route.fulfill({
+      json: {
+        answer: 'La France exporte 11,3 GW en ce moment.',
+        sql: 'select 1 limit 1',
+        rowCount: 1,
+      },
+    })
+  })
   await page.route('**/rest/v1/v_metropoles_7d**', (route) => {
     const epci = /epci_code=eq\.([^&]+)/.exec(route.request().url())?.[1]
     return route.fulfill({ json: metros.filter((m) => m.epci_code === epci) })
@@ -185,7 +204,7 @@ test.describe('Dashboard avec données mockées', () => {
       page.locator('section[aria-label^="Indicateurs clés"]').getByText(/^70\s?%$/),
     ).toBeVisible()
     await expect(page.getByText('+1,9')).toBeVisible()
-    await expect(page.getByText('la France exporte')).toBeVisible()
+    await expect(page.getByText('la France exporte', { exact: true })).toBeVisible()
     await expect(page.getByText(/vs prévision J-1/)).toBeVisible()
     await expect(page.getByText(/données du jeudi 15 janvier/).first()).toBeVisible()
     // ECharts a réellement monté ses canvas (héro, mix, carte ; ECharts peut en créer
@@ -296,6 +315,25 @@ test.describe('Dashboard avec données mockées', () => {
     await page.keyboard.press('Enter')
     await page.getByRole('button', { name: /Creuser dans l'Explorateur/ }).click()
     await expect(explorer.getByText('Consommation · Bretagne')).toBeVisible()
+  })
+
+  test('le chat répond aux questions et refuse honnêtement hors périmètre', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/')
+
+    const chat = page.locator('section[aria-label="Pose ta question"]')
+    await expect(chat).toBeVisible()
+    // happy path : une question suggérée, réponse et requête SQL transparente
+    await chat.getByRole('button', { name: 'La France exporte-t-elle en ce moment ?' }).click()
+    await expect(chat.getByText('La France exporte 11,3 GW en ce moment.')).toBeVisible()
+    await expect(chat.getByText('voir la requête SQL')).toBeVisible()
+    // refus d'une question hors périmètre, sans requête SQL affichée
+    await chat.getByLabel('Ta question').fill('Quelle météo demain à Lyon ?')
+    await chat.getByRole('button', { name: 'Demander' }).click()
+    await expect(
+      chat.getByText('Je ne couvre que les données électriques publiques du tableau de bord.'),
+    ).toBeVisible()
+    expect(await chat.getByText('voir la requête SQL').count()).toBe(1)
   })
 
   test("les critères vivent dans l'URL : partage par lien, retour arrière, remise à zéro", async ({

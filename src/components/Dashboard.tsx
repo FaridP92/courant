@@ -44,6 +44,7 @@ import { ExportButton } from './ExportButton.tsx'
 import { FilterBar } from './FilterBar.tsx'
 import { KpiCard } from './KpiCard.tsx'
 import { BriefSection } from './BriefSection.tsx'
+import { ChatSection } from './ChatSection.tsx'
 import { ExplorerSection } from './ExplorerSection.tsx'
 import { MapSection } from './MapSection.tsx'
 import { MetropolesSection } from './MetropolesSection.tsx'
@@ -539,7 +540,10 @@ export function Dashboard() {
                 setFilters({ range })
               }}
             />
-            <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
+            <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
+              <ChatSection />
+            </div>
           </>
         )}
       </main>
