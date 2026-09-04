@@ -213,6 +213,26 @@ async function mockApi(page: Page) {
     }),
   )
   await page.route('**/rest/v1/v_tempo_calendar**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/rest/v1/v_supplier_offers_current**', (route) =>
+    route.fulfill({
+      json: [
+        {
+          supplier: 'Octopus Energy',
+          offer: 'Eco-conso',
+          option: 'BASE',
+          p_souscrite: 6,
+          fixed_ttc: 165.24,
+          prices_ttc: { base: 0.1873 },
+          pricing_type: 'fixe',
+          price_locked_until: '2027-08-31',
+          green: true,
+          source_url: 'https://example.invalid/octopus-grille.pdf',
+          grid_date: '2026-08-01',
+          checked_at: new Date(BASE_TS).toISOString(),
+        },
+      ],
+    }),
+  )
   await page.route('**/api/chat', (route) => {
     const body = route.request().postDataJSON() as { question?: string }
     const question = body.question ?? ''
@@ -243,7 +263,7 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { level: 1, name: 'COURANT' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Courant' })).toBeVisible()
     // valeurs déterministes de la fixture : conso index 95 = 55013 MW (KPI + héro)
     await expect(
       page.locator('section[aria-label^="Indicateurs clés"]').getByText('55,0'),
@@ -274,10 +294,19 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(page.getByText(/NaN/)).toHaveCount(0)
   })
 
-  test('badge LIVE et fraîcheur présents dans le header', async ({ page }) => {
+  test('badge « En direct » et fraîcheur présents dans le header', async ({ page }) => {
     await mockApi(page)
     await page.goto('/')
-    await expect(page.getByText('LIVE')).toBeVisible()
+    const header = page.locator('header')
+    // le lien de navigation s'appelle aussi « En direct » : on vise la pastille
+    const live = header.locator('.chip', { hasText: 'En direct' })
+    await expect(live).toBeVisible()
+    await expect(live).toContainText('données du jeudi 15 janvier')
+    // la navigation par rubriques mène au comparateur
+    await expect(header.getByRole('link', { name: 'Ma facture' })).toHaveAttribute(
+      'href',
+      '#compare',
+    )
   })
 
   test("l'interactivité répond : période, filière masquable, exports, métropoles", async ({
@@ -377,7 +406,7 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
 
-    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    const compare = page.locator('section[aria-label="Compare ta facture"]')
     await compare.getByLabel('Consommation annuelle (kWh)').fill('4500')
     // 189,98 + 4500 × 0,1985 = 1 083,23 ; l'abonnement a sa propre colonne
     const base = compare.getByRole('row', { name: /Tarif Bleu Base/ })
@@ -385,6 +414,11 @@ test.describe('Dashboard avec données mockées', () => {
     await expect(base).toContainText('1 083,23')
     // Tempo dit pourquoi il manque plutôt que d'inventer
     await expect(compare.getByRole('row', { name: /Tempo/ })).toContainText('courbe de charge')
+    // l'offre de marché mockée est moins chère : elle passe en tête, avec l'écart pour le TRV
+    const octopus = compare.getByRole('row', { name: /Octopus Energy/ })
+    await expect(octopus).toContainText('Le moins cher')
+    await expect(octopus).toContainText('1 008,09')
+    await expect(base).toContainText('+75,14')
   })
 
   test('Compare ta conso : import Enedis lu localement, coûts sur la période du fichier', async ({
@@ -393,7 +427,7 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
 
-    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    const compare = page.locator('section[aria-label="Compare ta facture"]')
     await compare.getByRole('button', { name: 'Importer mon export Enedis' }).click()
     // quatre pas de 30 min à 1 000 W = 2 kWh, le fichier reste dans le navigateur
     const csv = [
@@ -424,7 +458,7 @@ test.describe('Dashboard avec données mockées', () => {
     await mockApi(page)
     await page.goto('/')
 
-    const compare = page.locator('section[aria-label="Compare ta conso"]')
+    const compare = page.locator('section[aria-label="Compare ta facture"]')
     await compare.getByRole('button', { name: 'Importer mon export Enedis' }).click()
     await compare
       .getByLabel(/Fichier Enedis/)

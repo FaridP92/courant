@@ -218,6 +218,37 @@ export async function fetchTempoCalendar(): Promise<TempoCalendarDay[]> {
   return [...rows].reverse()
 }
 
+/** Une grille de prix comparable : ce que partagent tarif réglementé et offres de marché. */
+export interface PriceGrid {
+  option: 'BASE' | 'HPHC' | 'TEMPO'
+  p_souscrite: number
+  /** Abonnement TTC en euros par an. */
+  fixed_ttc: number
+  /** Prix TTC du kWh par poste : base, hp/hc, ou les six paniers Tempo. */
+  prices_ttc: Record<string, number>
+}
+
+/** Offre d'un fournisseur de marché (v_supplier_offers_current), collectée par le WF10
+ * depuis la fiche tarifaire publique du fournisseur et vérifiée avant publication. */
+export interface SupplierOffer extends PriceGrid {
+  supplier: string
+  offer: string
+  option: 'BASE' | 'HPHC'
+  /** fixe = prix bloqué, remise_trv = pourcentage du tarif réglementé. */
+  pricing_type: 'fixe' | 'remise_trv'
+  price_locked_until: string | null
+  green: boolean
+  source_url: string
+  grid_date: string | null
+  checked_at: string
+}
+
+export async function fetchSupplierOffers(): Promise<SupplierOffer[]> {
+  return fetchRows<SupplierOffer>(
+    'v_supplier_offers_current?select=*&order=supplier.asc,offer.asc,option.asc,p_souscrite.asc',
+  )
+}
+
 /** Le brief du matin (v_brief) : prose IA, chiffres calculés en base. */
 export interface DailyBrief {
   day: string

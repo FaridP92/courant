@@ -21,16 +21,14 @@ export function KpiCard({
   sparkFilled,
 }: KpiCardProps) {
   return (
-    <article className="flex flex-col gap-1.5 rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)">
-      <p className="font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">
-        {label}
-      </p>
-      <p className="font-display text-[32px] leading-none font-extrabold tracking-tight text-ink-100 [font-stretch:115%]">
+    <article className="panel flex flex-col gap-1 p-5">
+      <p className="text-[13px] font-medium text-ink-60">{label}</p>
+      <p className="font-display text-[34px] leading-none font-extrabold tracking-tight text-ink-100 [font-stretch:112%]">
         {value}
-        <span className="ml-1 text-[15px] font-semibold text-ink-60">{unit}</span>
+        <span className="ml-1 text-[15px] font-semibold text-ink-40">{unit}</span>
       </p>
-      <p className="font-data text-[11.5px] text-ink-60">{detail}</p>
-      <div className="mt-auto pt-1" aria-hidden="true">
+      <p className="text-[12.5px] text-ink-40">{detail}</p>
+      <div className="mt-auto pt-2" aria-hidden="true">
         <Sparkline values={sparkValues} color={sparkColor} filled={sparkFilled ?? false} />
       </div>
     </article>

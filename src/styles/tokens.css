@@ -1,44 +1,94 @@
 /*
- * Design tokens "Courant" : source de vérité unique.
- * La maquette statique (public/design/maquette.html) duplique ce bloc
- * en attendant l'industrialisation (Phase 2) ; toute évolution se fait ICI d'abord.
+ * Design tokens "Courant" : source de vérité unique, deux thèmes.
  *
- * Palette filières : teintes proches des conventions éCO2mix (repères connus du public),
- * éclaircies pour rester lisibles sur fond sombre (validées par le validateur dataviz,
- * voir docs/design/palette-validation.md).
+ * Le thème JOUR est le défaut : fond clair, cartes blanches, encre marine, accent
+ * bleu électrique. Il répond au retour « austère » sur la version sombre. Le thème
+ * NUIT (la « salle de contrôle » d'origine) reste disponible via <html data-theme="dark">.
+ * Les noms de tokens sont conservés pour ne pas réécrire tous les composants :
+ *   abyss = fond de page, panel = carte, raised = surface en relief, line = filet.
+ *
+ * Palette filières : conventions éCO2mix, recalées par thème pour rester lisibles
+ * (vérifiées : contraste et distance OKLab entre filières adjacentes, y compris en
+ * simulation deutéranopie / protanopie, voir docs/design/palette-validation.md).
  * Vert / orange / rouge : strictement réservés aux signaux Ecowatt et Tempo.
  */
 @theme {
-  /* Surfaces : "salle de contrôle", pétrole profond, jamais noir pur */
+  /* Surfaces, thème jour */
+  --color-abyss: #f4f6fa;
+  --color-panel: #ffffff;
+  --color-raised: #f0f3f8;
+  --color-line: #e3e8ef;
+  --color-line-strong: #c9d3df;
+
+  /* Encres, thème jour : ink-40 >= 4,5:1 sur les trois surfaces */
+  --color-ink-100: #0b1b2b;
+  --color-ink-60: #4b5b6e;
+  --color-ink-40: #5f6f82;
+
+  /* Accent bleu électrique : identité du produit */
+  --color-accent: #1f5af5;
+  --color-accent-deep: #1441b8;
+  --color-accent-glow: rgba(31, 90, 245, 0.1);
+  --color-accent-soft: #e8efff;
+
+  /* Signaux Ecowatt (vert / orange / rouge) : usage exclusif */
+  --color-signal-ok: #1f9d55;
+  --color-signal-tense: #d97706;
+  --color-signal-critical: #dc2626;
+
+  /* Signaux Tempo (bleu / blanc / rouge) : usage exclusif */
+  --color-tempo-blue: #2b63d9;
+  --color-tempo-white: #ffffff;
+  --color-tempo-red: #dc2626;
+
+  /* Filières de production, thème jour */
+  --color-fuel-nuclear: #c8930c;
+  --color-fuel-hydro: #2e7bc9;
+  --color-fuel-wind: #1b9aae;
+  --color-fuel-solar: #d4791a;
+  --color-fuel-gas: #c7477a;
+  --color-fuel-bio: #0f7a48;
+  --color-fuel-coal: #3f4e5e;
+  --color-fuel-oil: #8e63b5;
+  --color-fuel-pumped: #3b6e9e;
+  --color-fuel-imports: #6b8798;
+
+  /* Typographie */
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Rayons et ombres : cartes douces, relief léger */
+  --radius-card: 16px;
+  --radius-chip: 8px;
+  --shadow-card: 0 1px 2px rgba(11, 27, 43, 0.05), 0 10px 30px rgba(11, 27, 43, 0.06);
+}
+
+/* Thème nuit : la salle de contrôle d'origine */
+[data-theme='dark'] {
   --color-abyss: #0a1216;
   --color-panel: #101b21;
   --color-raised: #16242c;
   --color-line: #223440;
   --color-line-strong: #31485a;
 
-  /* Encres */
   --color-ink-100: #eaf3f6;
   --color-ink-60: #9db4be;
-  /* ink-40 sert aussi a du texte informatif : >= 4,5:1 sur abyss, panel ET raised */
   --color-ink-40: #7b96a4;
 
-  /* Accent électrique : identité du produit */
   --color-accent: #2ee6ff;
   --color-accent-deep: #0e7c9e;
   --color-accent-glow: rgba(46, 230, 255, 0.12);
+  --color-accent-soft: #10303a;
 
-  /* Signaux Ecowatt (vert / orange / rouge) : usage exclusif */
   --color-signal-ok: #43d17c;
   --color-signal-tense: #ffb03a;
   --color-signal-critical: #ff5a5f;
 
-  /* Signaux Tempo (bleu / blanc / rouge) : usage exclusif */
   --color-tempo-blue: #4d9fff;
   --color-tempo-white: #eaf3f6;
   --color-tempo-red: #ff5a5f;
 
-  /* Filières de production : teintes éCO2mix recalées en OKLCH pour fond sombre
-     (bande L [0.48, 0.67], chroma >= 0.10, validées : docs/design/palette-validation.md) */
   --color-fuel-nuclear: #b58c15;
   --color-fuel-hydro: #287ab5;
   --color-fuel-wind: #2ca893;
@@ -50,13 +100,5 @@
   --color-fuel-pumped: #31679a;
   --color-fuel-imports: #678c9f;
 
-  /* Typographie */
-  --font-display: 'Archivo', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
-
-  /* Rayons et ombres : relief léger, pas de verre dépoli */
-  --radius-card: 10px;
-  --radius-chip: 6px;
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
 }

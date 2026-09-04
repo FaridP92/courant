@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import geojson from '../../../public/geo/regions-metropole.json'
 import type { NationalLatest, RegionalLatest } from '../../lib/api.ts'
+import { paletteFor } from '../../lib/palette.ts'
 import { buildMapOption, REGION_NAMES } from './mapOptions.ts'
+
+const LIGHT = paletteFor('light')
 
 const region = (code: string, name: string, consommation: number): RegionalLatest => ({
   region_code: code,
@@ -140,9 +143,10 @@ describe('buildMapOption : métrique choisie', () => {
     ]
     const option = buildMapOption(mixed, national, null, false, 'echanges')
 
-    // export (ech_physiques négatif) : cyan de l'accent ; import : bleu-gris
-    expect(areaColor(option, '84')).toContain('46, 230, 255')
-    expect(areaColor(option, '11')).not.toContain('46, 230, 255')
+    // export (ech_physiques négatif) : teinte de l'accent ; import : bleu-gris
+    expect(areaColor(option, '84')).toContain(LIGHT.accentRgb)
+    expect(areaColor(option, '11')).not.toContain(LIGHT.accentRgb)
+    expect(areaColor(option, '11')).toContain(LIGHT.importFlowRgb)
     expect(tooltipHtml(option, '84')).toContain('+2,4 GW')
   })
 
@@ -150,7 +154,7 @@ describe('buildMapOption : métrique choisie', () => {
     const incomplete = [{ ...region('11', 'Île-de-France', 8000), eolien: null }]
     const option = buildMapOption(incomplete, national, null, false, 'renouvelables')
 
-    expect(areaColor(option, '11')).toBe('#12212a')
+    expect(areaColor(option, '11')).toBe(LIGHT.neutralArea)
     expect(tooltipHtml(option, '11')).toContain('n.d.')
   })
 

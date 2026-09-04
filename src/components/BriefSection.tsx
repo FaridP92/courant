@@ -1,5 +1,6 @@
 import type { DailyBrief } from '../lib/api.ts'
 import { formatParisClock, formatParisDate } from '../lib/format.ts'
+import { SectionHeader } from './SectionHeader.tsx'
 
 type QueryStatus = 'pending' | 'error' | 'success'
 
@@ -8,21 +9,19 @@ type QueryStatus = 'pending' | 'error' | 'success'
 export function BriefSection({ brief, status }: { brief: DailyBrief | null; status: QueryStatus }) {
   if (brief === null && status === 'pending') return null
   return (
-    <section
-      aria-label="Le brief du matin"
-      className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)"
-    >
-      <h2 className="mb-2 font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-        Le brief du matin
-      </h2>
+    <section aria-label="Le brief du matin" className="panel p-5 md:p-6">
+      <SectionHeader
+        title="Le brief du matin"
+        subtitle="La journée d'hier en quelques phrases, rédigées par IA à partir des chiffres calculés en base."
+      />
       {brief === null ? (
-        <p className="font-data text-sm text-ink-40">
+        <p className="text-[15px] leading-relaxed text-ink-60">
           Le premier brief sera rédigé demain matin vers 07 h 30.
         </p>
       ) : (
         <>
-          <p className="max-w-[70ch] text-[15px] leading-[1.65] text-ink-100">{brief.body}</p>
-          <p className="mt-2.5 font-data text-[11px] text-ink-40">
+          <p className="max-w-[68ch] text-[16px] leading-relaxed text-ink-100">{brief.body}</p>
+          <p className="mt-4 border-t border-line pt-3 text-[12.5px] leading-relaxed text-ink-40">
             Rédigé par IA (Mistral) à partir des données RTE de la veille,{' '}
             {formatParisDate(`${brief.day}T12:00:00Z`)} · publié à{' '}
             {formatParisClock(brief.generated_at)} · les chiffres sont calculés en base, jamais par

@@ -17,7 +17,7 @@ export function ExportButton({ rows, filename, label = 'CSV' }: ExportButtonProp
       onClick={() => {
         downloadCsv(rows, filename)
       }}
-      className="rounded-md border border-line-strong px-2.5 py-1 font-data text-xs text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+      className="btn-secondary gap-1.5 px-3 py-1.5 text-[13px] disabled:opacity-40"
     >
       ↓ {label}
     </button>

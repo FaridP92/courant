@@ -73,7 +73,8 @@ function stubApi(handler: (url: string) => unknown) {
               url.includes('v_tempo') ||
               url.includes('v_brief') ||
               url.includes('v_trv_current') ||
-              url.includes('v_tempo_calendar')
+              url.includes('v_tempo_calendar') ||
+              url.includes('v_supplier_offers_current')
               ? []
               : handler(url),
           ),
@@ -151,7 +152,7 @@ describe('Dashboard branché sur les vues publiques', () => {
     stubApi((url) => (url.includes('v_national_latest') ? [latest] : points))
     renderDashboard()
 
-    expect(screen.getByRole('heading', { level: 1, name: 'COURANT' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Courant' })).toBeInTheDocument()
     expect(await screen.findByText(/Hydraulique/)).toBeInTheDocument()
     for (const label of [/Bioénergies/, /Fioul/]) {
       expect(screen.getByText(label)).toBeInTheDocument()
@@ -324,7 +325,9 @@ describe("Territoire porté par l'URL", () => {
                   : url.includes('v_metropoles') ||
                       url.includes('v_ecowatt') ||
                       url.includes('v_tempo') ||
-                      url.includes('v_brief')
+                      url.includes('v_brief') ||
+                      url.includes('v_trv_current') ||
+                      url.includes('v_supplier_offers_current')
                     ? []
                     : points,
             ),

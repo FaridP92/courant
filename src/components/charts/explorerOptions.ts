@@ -5,7 +5,8 @@
  * (stockage négatif, pas une production).
  */
 import type { RegionalPoint } from '../../lib/api.ts'
-import { accent, FUELS, ink, surfaces } from '../../lib/palette.ts'
+import type { Theme } from '../../hooks/useTheme.ts'
+import { paletteFor, type FuelSeries } from '../../lib/palette.ts'
 import { gwAxis, gwTooltip, insideZoom, timeAxis } from './chartOptions.ts'
 
 type TimeValue = [number, number | null]
@@ -33,25 +34,40 @@ export interface ExplorerChartOption {
   series: ExplorerSeries[]
 }
 
-const fuelColor = (key: string, fallback: string): string =>
-  FUELS.find((f) => f.key === key)?.color ?? fallback
-
 /** Filières régionales empilées, du socle aux appoints (libellés éCO2mix). */
-export const REGIONAL_FUELS: readonly {
+export interface RegionalFuel {
   key: keyof Pick<
     RegionalPoint,
     'nucleaire' | 'hydraulique' | 'eolien' | 'solaire' | 'bioenergies' | 'thermique'
   >
   label: string
   color: string
+}
+
+const REGIONAL_ORDER: readonly {
+  key: RegionalFuel['key']
+  label: string
+  from: FuelSeries['key']
 }[] = [
-  { key: 'nucleaire', label: 'Nucléaire', color: fuelColor('nucleaire', '#b58c15') },
-  { key: 'hydraulique', label: 'Hydraulique', color: fuelColor('hydraulique', '#287ab5') },
-  { key: 'eolien', label: 'Éolien', color: fuelColor('eolien', '#2ca893') },
-  { key: 'solaire', label: 'Solaire', color: fuelColor('solaire', '#c06a01') },
-  { key: 'bioenergies', label: 'Bioénergies', color: fuelColor('bioenergies', '#0f8354') },
-  { key: 'thermique', label: 'Thermique', color: fuelColor('gaz', '#c65860') },
+  { key: 'nucleaire', label: 'Nucléaire', from: 'nucleaire' },
+  { key: 'hydraulique', label: 'Hydraulique', from: 'hydraulique' },
+  { key: 'eolien', label: 'Éolien', from: 'eolien' },
+  { key: 'solaire', label: 'Solaire', from: 'solaire' },
+  { key: 'bioenergies', label: 'Bioénergies', from: 'bioenergies' },
+  { key: 'thermique', label: 'Thermique', from: 'gaz' },
 ]
+
+export function regionalFuels(theme: Theme = 'light'): readonly RegionalFuel[] {
+  const fuels = paletteFor(theme).fuels
+  return REGIONAL_ORDER.map((f) => ({
+    key: f.key,
+    label: f.label,
+    color: fuels.find((fuel) => fuel.key === f.from)?.color ?? '#000000',
+  }))
+}
+
+/** Compatibilité : la liste du thème jour. */
+export const REGIONAL_FUELS: readonly RegionalFuel[] = regionalFuels('light')
 
 export interface TerritoryCurve {
   name: string
@@ -59,26 +75,37 @@ export interface TerritoryCurve {
 }
 
 /** Couleurs des courbes superposées : l'accent pour le territoire principal, puis
- * deux teintes de la palette validée. Aucune filière n'est tracée dans ce graphe,
- * donc aucune couleur n'y porte déjà un autre sens. */
-export const CURVE_COLORS: readonly string[] = [accent, '#986eb9', ink.hi]
-
-export function curveColor(index: number): string {
-  return CURVE_COLORS[index] ?? ink.mid
+ * une teinte de la palette validée (fioul) et l'encre forte. Aucune filière n'est
+ * tracée dans ce graphe, donc aucune couleur n'y porte déjà un autre sens. */
+export function curveColors(theme: Theme = 'light'): readonly string[] {
+  const palette = paletteFor(theme)
+  return [
+    palette.accent,
+    palette.fuels.find((f) => f.key === 'fioul')?.color ?? palette.ink.mid,
+    palette.ink.hi,
+  ]
 }
 
-export function buildTerritoryConsoOption(curves: readonly TerritoryCurve[]): ExplorerChartOption {
+export function curveColor(index: number, theme: Theme = 'light'): string {
+  return curveColors(theme)[index] ?? paletteFor(theme).ink.mid
+}
+
+export function buildTerritoryConsoOption(
+  curves: readonly TerritoryCurve[],
+  theme: Theme = 'light',
+): ExplorerChartOption {
+  const palette = paletteFor(theme)
   // l'aire ne se remplit que pour une courbe seule : superposées, elles se cacheraient
   const filled = curves.length === 1
   return {
     animation: false,
     grid: { left: 46, right: 18, top: 16, bottom: 26 },
-    xAxis: timeAxis(),
-    yAxis: gwAxis(),
-    tooltip: gwTooltip(),
+    xAxis: timeAxis(palette),
+    yAxis: gwAxis({}, palette),
+    tooltip: gwTooltip({}, palette),
     dataZoom: insideZoom(),
     series: curves.map((curve, index) => {
-      const color = curveColor(index)
+      const color = curveColor(index, theme)
       const series: ExplorerSeries = {
         name: curve.name,
         type: 'line',
@@ -95,15 +122,19 @@ export function buildTerritoryConsoOption(curves: readonly TerritoryCurve[]): Ex
   }
 }
 
-export function buildRegionalMixOption(points: readonly RegionalPoint[]): ExplorerChartOption {
+export function buildRegionalMixOption(
+  points: readonly RegionalPoint[],
+  theme: Theme = 'light',
+): ExplorerChartOption {
+  const palette = paletteFor(theme)
   return {
     animation: false,
     grid: { left: 46, right: 18, top: 16, bottom: 26 },
-    xAxis: timeAxis(),
-    yAxis: gwAxis(),
-    tooltip: gwTooltip({ order: 'seriesDesc' }),
+    xAxis: timeAxis(palette),
+    yAxis: gwAxis({}, palette),
+    tooltip: gwTooltip({ order: 'seriesDesc' }, palette),
     dataZoom: insideZoom(),
-    series: REGIONAL_FUELS.map((fuel) => ({
+    series: regionalFuels(theme).map((fuel) => ({
       name: fuel.label,
       type: 'line' as const,
       stack: 'mix',
@@ -111,7 +142,7 @@ export function buildRegionalMixOption(points: readonly RegionalPoint[]): Explor
       showSymbol: false as const,
       connectNulls: false,
       // liseré couleur surface : l'écart entre aires de la palette validée
-      lineStyle: { color: surfaces.panel, width: 2 },
+      lineStyle: { color: palette.surfaces.panel, width: 2 },
       itemStyle: { color: fuel.color },
       areaStyle: { color: fuel.color, opacity: 0.92 },
       emphasis: { disabled: true as const },

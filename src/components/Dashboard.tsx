@@ -16,7 +16,8 @@ import {
   formatSignedPercent,
   formatWholePercent,
 } from '../lib/format.ts'
-import { accent, forecastDayBefore, forecastToday, FUELS, ink } from '../lib/palette.ts'
+import { paletteFor } from '../lib/palette.ts'
+import { useTheme } from '../hooks/useTheme.ts'
 import {
   useBriefData,
   useEcowattData,
@@ -24,6 +25,7 @@ import {
   useNationalLatest,
   useNationalSeries,
   useRegionalData,
+  useSupplierOffers,
   useTempoCalendar,
   useTempoData,
   useTrvCurrent,
@@ -42,6 +44,7 @@ import {
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { ToggleChip } from './controls/ToggleChip.tsx'
 import { DashboardHeader } from './DashboardHeader.tsx'
+import { SectionHeader } from './SectionHeader.tsx'
 import { ExportButton } from './ExportButton.tsx'
 import { FilterBar } from './FilterBar.tsx'
 import { KpiCard } from './KpiCard.tsx'
@@ -84,6 +87,7 @@ function sparkSeries(
 }
 
 function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly NationalPoint[] }) {
+  const palette = paletteFor(useTheme().theme)
   const observed = observedPoints(points)
   const balance = exchangeBalanceMw(latest)
   const nuclear = nuclearShare(latest)
@@ -99,7 +103,8 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
 
   return (
     <section
-      className="grid grid-cols-2 gap-3.5 lg:grid-cols-5"
+      id="direct"
+      className="grid grid-cols-2 gap-4 scroll-mt-24 lg:grid-cols-5"
       aria-label="Indicateurs clés (sparklines : tendance des 6 dernières heures observées)"
     >
       <KpiCard
@@ -117,7 +122,7 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
           )
         }
         sparkValues={sparkSeries(observed, (p) => p.consommation)}
-        sparkColor={accent}
+        sparkColor={palette.accent}
         sparkFilled
       />
       <KpiCard
@@ -126,7 +131,7 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
         unit={nuclear === null ? '' : '%'}
         detail={`${formatGigawatts(latest.nucleaire)} GW produits`}
         sparkValues={sparkSeries(observed, (p) => p.nucleaire)}
-        sparkColor={FUELS[0]?.color ?? accent}
+        sparkColor={palette.fuels[0]?.color ?? palette.accent}
       />
       <KpiCard
         label="Renouvelables"
@@ -138,7 +143,7 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
             : `hydro ${formatGigawatts(latest.hydraulique)} · éolien ${formatGigawatts(latest.eolien)} GW`
         }
         sparkValues={sparkSeries(observed, renewablesSum)}
-        sparkColor={FUELS[1]?.color ?? accent}
+        sparkColor={palette.fuels[1]?.color ?? palette.accent}
       />
       <KpiCard
         label="Intensité CO2"
@@ -146,7 +151,7 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
         unit="g/kWh"
         detail="empreinte carbone du kWh"
         sparkValues={sparkSeries(observed, (p) => p.taux_co2)}
-        sparkColor={ink.mid}
+        sparkColor={palette.ink.mid}
       />
       <KpiCard
         label="Échanges"
@@ -162,7 +167,7 @@ function KpiRow({ latest, points }: { latest: NationalLatest; points: readonly N
         sparkValues={sparkSeries(observed, (p) =>
           p.ech_physiques === null ? null : -p.ech_physiques,
         )}
-        sparkColor={ink.mid}
+        sparkColor={palette.ink.mid}
       />
     </section>
   )
@@ -194,6 +199,8 @@ function TimeColumn({
   total: number
 }) {
   const { range } = filters
+  const { theme } = useTheme()
+  const palette = paletteFor(theme)
   // le mix raisonne en filières masquées : le complément de celles retenues par le filtre
   const hiddenFuels = useMemo(
     () => new Set(FUEL_KEYS.filter((key) => !filters.fuels.has(key))),
@@ -213,8 +220,8 @@ function TimeColumn({
     [points, filters.co2Threshold, filters.deviationThreshold],
   )
   const heroOption = useMemo(
-    () => buildHeroChartOption(points, new Date(), highlights),
-    [points, highlights],
+    () => buildHeroChartOption(points, new Date(), highlights, theme),
+    [points, highlights, theme],
   )
   const carbon = highlightSummary(highlights.co2)
   const drift = highlightSummary(highlights.deviation)
@@ -230,7 +237,10 @@ function TimeColumn({
       : drift.steps === 0
         ? `aucun écart au J-1 au-dessus de ${String(filters.deviationThreshold)} %`
         : `écart au J-1 : ${String(drift.steps)} pas au-dessus de ${String(filters.deviationThreshold)} %, pointe ${formatWholePercent(drift.peak)} %`
-  const mixOption = useMemo(() => buildMixChartOption(points, hiddenFuels), [points, hiddenFuels])
+  const mixOption = useMemo(
+    () => buildMixChartOption(points, hiddenFuels, theme),
+    [points, hiddenFuels, theme],
+  )
   const exportRows = nationalExportRows(points)
   // l'export livre exactement la vue filtrée : le nom du fichier porte donc le critère
   const exportSuffix =
@@ -240,35 +250,37 @@ function TimeColumn({
 
   return (
     <section aria-label="Consommation et mix de production dans le temps">
-      <article className="rounded-t-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-            Consommation nationale{' '}
-            <span className="font-normal tracking-normal normal-case">
-              réalisé vs prévisions RTE · {RANGE_HINTS[range]}
-              {scale !== null && ` · échelle ${String(scale.min)}-${String(scale.max)} GW`}
-            </span>
-          </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterBar
-              filters={filters}
-              onChange={onFiltersChange}
-              onReset={onReset}
-              kept={kept}
-              total={total}
-            />
-            <ExportButton
-              rows={exportRows}
-              filename={`courant-national-${range}${exportSuffix}.csv`}
-            />
-          </div>
-        </div>
-        <div className="mb-1 flex flex-wrap items-end gap-x-7 gap-y-2">
-          <p className="font-display text-[72px] leading-[0.95] font-extrabold tracking-tight text-ink-100 [font-stretch:120%] [text-shadow:0_0_34px_rgba(46,230,255,0.18)]">
+      <article className="panel rounded-b-none p-5 md:p-6">
+        <SectionHeader
+          title="Consommation nationale"
+          subtitle={
+            <>
+              Ce que la France consomme, comparé aux prévisions de RTE, {RANGE_HINTS[range]}
+              {scale !== null && ` (échelle ${String(scale.min)} à ${String(scale.max)} GW)`}.
+            </>
+          }
+          actions={
+            <>
+              <FilterBar
+                filters={filters}
+                onChange={onFiltersChange}
+                onReset={onReset}
+                kept={kept}
+                total={total}
+              />
+              <ExportButton
+                rows={exportRows}
+                filename={`courant-national-${range}${exportSuffix}.csv`}
+              />
+            </>
+          }
+        />
+        <div className="mb-2 flex flex-wrap items-end gap-x-6 gap-y-2">
+          <p className="font-display text-[64px] leading-[0.95] font-extrabold tracking-tight text-ink-100 [font-stretch:115%] md:text-[76px]">
             {formatGigawatts(latest.consommation)}
-            <span className="text-[28px] font-semibold text-ink-60"> GW</span>
+            <span className="text-[26px] font-semibold text-ink-40"> GW</span>
           </p>
-          <p className="pb-2 text-[13.5px] text-ink-60">
+          <p className="pb-2 text-[14px] text-ink-60">
             {formatFreshness(latest.ts)} · consommation électrique de la France
           </p>
         </div>
@@ -298,16 +310,16 @@ function TimeColumn({
                 className="h-[240px] w-full"
               />
             </ChartSlot>
-            <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-[11.5px] text-ink-60">
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-60">
               <span className="flex items-center gap-1.5">
                 <i className="h-[3px] w-3.5 rounded-sm bg-accent" />{' '}
                 <b className="font-medium text-ink-100">Réalisé</b>
               </span>
               <span className="flex items-center gap-1.5">
-                <ForecastSwatch color={forecastToday} dash="2 3" /> Prévision J
+                <ForecastSwatch color={palette.forecastToday} dash="2 3" /> Prévision J
               </span>
               <span className="flex items-center gap-1.5">
-                <ForecastSwatch color={forecastDayBefore} dash="6 3" /> Prévision J-1
+                <ForecastSwatch color={palette.forecastDayBefore} dash="6 3" /> Prévision J-1
               </span>
               <span className="text-[10.5px] text-ink-40">
                 molette ou pincement : zoom temporel
@@ -329,13 +341,12 @@ function TimeColumn({
         )}
       </article>
 
-      <article className="rounded-b-(--radius-card) border border-t-0 border-line bg-panel p-4 shadow-(--shadow-card)">
-        <h2 className="mb-2 font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-          Mix de production{' '}
-          <span className="font-normal tracking-normal normal-case">
-            même axe temporel : le curseur traverse les deux vues · échelle complète depuis 0
-          </span>
-        </h2>
+      <article className="panel rounded-t-none border-t-0 p-5 md:p-6">
+        <SectionHeader
+          as="h3"
+          title="Mix de production"
+          subtitle="D'où vient l'électricité, filière par filière, sur le même axe de temps : le curseur traverse les deux graphes."
+        />
         {filteredOut ? (
           <p className="flex h-[120px] items-center justify-center font-data text-[12.5px] text-ink-40">
             Mix masqué par le même critère de maturité.
@@ -350,8 +361,8 @@ function TimeColumn({
             />
           </ChartSlot>
         )}
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 font-data text-[11.5px] text-ink-60">
-          {FUELS.map((fuel) => {
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-ink-60">
+          {palette.fuels.map((fuel) => {
             const value = latest[fuel.key]
             const visible = filters.fuels.has(fuel.key)
             // au moins une filière reste affichée : le dernier chip actif le dit
@@ -393,30 +404,23 @@ function LoadingState() {
     >
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
         {Array.from({ length: 5 }, (_, i) => (
-          <div
-            key={i}
-            className="h-32 animate-pulse rounded-(--radius-card) border border-line bg-panel"
-          />
+          <div key={i} className="panel h-32 animate-pulse" />
         ))}
       </div>
-      <div className="h-[560px] animate-pulse rounded-(--radius-card) border border-line bg-panel" />
+      <div className="panel h-[560px] animate-pulse" />
     </section>
   )
 }
 
 function UnavailableState({ onRetry }: { onRetry: () => void }) {
   return (
-    <section className="rounded-(--radius-card) border border-line bg-panel px-6 py-10 text-center">
+    <section className="panel px-6 py-12 text-center">
       <h2 className="font-display text-2xl font-bold text-ink-100">Données indisponibles</h2>
       <p className="mx-auto mt-2 max-w-xl text-[14px] text-ink-60">
         La source ne répond pas pour le moment. Courant n'affiche jamais de chiffres simulés : le
         tableau de bord reviendra avec les vraies données.
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-5 rounded-md border border-line-strong px-5 py-2 font-data text-sm text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
+      <button type="button" onClick={onRetry} className="btn-primary mt-6">
         Réessayer
       </button>
     </section>
@@ -435,6 +439,7 @@ export function Dashboard() {
   const briefQuery = useBriefData()
   const trvQuery = useTrvCurrent()
   const tempoCalendarQuery = useTempoCalendar()
+  const offersQuery = useSupplierOffers()
   const reduceMotion = usePrefersReducedMotion()
 
   const exploreRegion = (code: string) => {
@@ -465,9 +470,28 @@ export function Dashboard() {
   return (
     <div className="flex min-h-screen flex-col text-ink-100">
       <DashboardHeader freshTs={latest?.ts ?? null} />
-      <main className="mx-auto grid w-full max-w-[1360px] flex-1 content-start gap-3.5 px-7 pb-10">
+      <main className="mx-auto grid w-full max-w-[1360px] flex-1 content-start gap-6 px-5 pt-8 pb-16 md:px-7">
+        <section aria-label="Introduction" className="pb-1">
+          <h2 className="max-w-3xl font-display text-[34px] leading-[1.05] font-extrabold tracking-[-0.02em] text-ink-100 [font-stretch:110%] md:text-[46px]">
+            L'électricité française, <span className="text-accent">en direct</span>.
+          </h2>
+          <div className="current-line mt-4 w-24" aria-hidden="true" />
+          <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-ink-60">
+            Ce que la France consomme et produit à cet instant, ce qu'annoncent Ecowatt et Tempo, et
+            ce que ta propre consommation coûterait selon les tarifs. Données publiques RTE, sans
+            compte ni cookie.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <a href="#compare" className="btn-primary no-underline">
+              Comparer ma facture
+            </a>
+            <a href="#explorer" className="btn-secondary no-underline">
+              Explorer ma région
+            </a>
+          </div>
+        </section>
         {latest !== null && refreshFailing && (
-          <p className="rounded-md border border-line-strong bg-panel px-4 py-2.5 font-data text-[12.5px] text-ink-60">
+          <p className="panel px-4 py-3 text-[13px] text-ink-60">
             Actualisation en échec : les chiffres affichés restent les dernières{' '}
             {formatFreshness(latest.ts).replace('données de', 'données réelles, de')}.
           </p>
@@ -484,7 +508,7 @@ export function Dashboard() {
         {latest !== null && (
           <>
             <KpiRow latest={latest} points={filteredSpark} />
-            <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
               <TimeColumn
                 latest={latest}
                 points={filteredRange.points}
@@ -494,19 +518,21 @@ export function Dashboard() {
                 kept={filteredRange.kept}
                 total={filteredRange.total}
               />
-              <div className="flex flex-col gap-3.5">
-                <MapSection
-                  regions={regionalQuery.data ?? []}
-                  national={latest}
-                  regionsStatus={regionalQuery.status}
-                  metric={filters.mapMetric}
-                  onMetricChange={(mapMetric) => {
-                    setFilters({ mapMetric })
-                  }}
-                  onExploreRegion={exploreRegion}
-                />
+              <div className="flex flex-col gap-6">
+                <div id="regions" className="scroll-mt-24">
+                  <MapSection
+                    regions={regionalQuery.data ?? []}
+                    national={latest}
+                    regionsStatus={regionalQuery.status}
+                    metric={filters.mapMetric}
+                    onMetricChange={(mapMetric) => {
+                      setFilters({ mapMetric })
+                    }}
+                    onExploreRegion={exploreRegion}
+                  />
+                </div>
                 {/* priorité mobile du brief : les signaux avant la carte */}
-                <div className="order-first xl:order-none">
+                <div id="signaux" className="order-first scroll-mt-24 xl:order-none">
                   <SignalsSection
                     ecowatt={ecowattQuery.data ?? []}
                     ecowattStatus={ecowattQuery.status}
@@ -517,10 +543,12 @@ export function Dashboard() {
                 </div>
               </div>
             </div>
-            <MetropolesSection
-              points={metropolesQuery.data ?? []}
-              status={metropolesQuery.status}
-            />
+            <div id="metropoles" className="scroll-mt-24">
+              <MetropolesSection
+                points={metropolesQuery.data ?? []}
+                status={metropolesQuery.status}
+              />
+            </div>
             <ExplorerSection
               regions={regionalQuery.data ?? []}
               metropoles={metropolesQuery.data ?? []}
@@ -545,35 +573,39 @@ export function Dashboard() {
                 setFilters({ range })
               }}
             />
-            <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_420px]">
-              <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
-              <ChatSection />
+            <div id="compare" className="scroll-mt-24">
+              <CompareSection
+                tariffs={trvQuery.data ?? []}
+                tariffsStatus={trvQuery.status}
+                calendar={tempoCalendarQuery.data ?? []}
+                offers={offersQuery.data ?? []}
+                offersStatus={offersQuery.status}
+              />
             </div>
-            <CompareSection
-              tariffs={trvQuery.data ?? []}
-              tariffsStatus={trvQuery.status}
-              calendar={tempoCalendarQuery.data ?? []}
-            />
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
+              <div id="brief" className="scroll-mt-24">
+                <BriefSection brief={briefQuery.data ?? null} status={briefQuery.status} />
+              </div>
+              <div id="question" className="scroll-mt-24">
+                <ChatSection />
+              </div>
+            </div>
           </>
         )}
       </main>
-      <footer className="border-t border-line px-7 py-4">
-        <p className="mx-auto flex max-w-[1360px] flex-wrap gap-x-6 gap-y-1.5 font-data text-[11.5px] text-ink-40">
-          <span>Données : RTE via ODRÉ (open data)</span>
-          <span>Projet indépendant, non affilié à RTE</span>
+      <footer className="border-t border-line px-5 py-8 md:px-7">
+        <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-8 gap-y-3 text-[13px] text-ink-40">
+          <span className="font-semibold text-ink-60">Courant</span>
+          <span>Données publiques RTE via ODRÉ et open data CRE</span>
+          <span>Projet indépendant, non affilié à RTE ni à un fournisseur</span>
+          <span>Aucun compte, aucun cookie, aucune donnée personnelle conservée</span>
           <a
-            className="border-b border-dashed border-line-strong text-ink-60 hover:border-accent hover:text-accent"
-            href="/design/maquette.html"
-          >
-            Voir la maquette (Phase 0)
-          </a>
-          <a
-            className="border-b border-dashed border-line-strong text-ink-60 hover:border-accent hover:text-accent"
+            className="text-ink-60 underline decoration-line-strong underline-offset-4 hover:text-accent"
             href="https://github.com/FaridP92/courant"
           >
-            GitHub
+            Sous le capot (GitHub)
           </a>
-        </p>
+        </div>
       </footer>
     </div>
   )

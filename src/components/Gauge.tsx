@@ -19,7 +19,7 @@ export function Gauge({
     <div
       role="img"
       aria-label={`${label} : ${valueText}`}
-      className="rounded-(--radius-chip) border border-line bg-raised px-2 py-2.5 text-center"
+      className="rounded-xl bg-raised px-3 py-3 text-center"
     >
       <div className="relative mx-auto w-full max-w-[110px]">
         <svg viewBox="0 0 100 54" aria-hidden="true" className="block w-full">
@@ -42,13 +42,13 @@ export function Gauge({
         </svg>
         <p
           aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 font-display text-[17px] leading-none font-bold text-ink-100 [font-stretch:112%]"
+          className="absolute inset-x-0 bottom-0 font-display text-[18px] leading-none font-bold text-ink-100 [font-stretch:112%]"
         >
           {valueText}
         </p>
       </div>
-      <p className="mt-1 font-data text-[10px] tracking-[0.08em] text-ink-40 uppercase">{label}</p>
-      {hint !== undefined && <p className="font-data text-[9.5px] text-ink-40">{hint}</p>}
+      <p className="mt-1.5 text-[12.5px] leading-tight text-ink-60">{label}</p>
+      {hint !== undefined && <p className="text-[11px] leading-tight text-ink-40">{hint}</p>}
     </div>
   )
 }

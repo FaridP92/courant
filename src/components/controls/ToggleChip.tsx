@@ -35,16 +35,16 @@ export function ToggleChip({
       onClick={() => {
         if (!locked) onToggle()
       }}
-      className={`flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 transition-colors hover:border-line-strong focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${pressed ? '' : 'opacity-40'}`}
+      className={`flex items-center gap-1.5 rounded-full border border-transparent px-2.5 py-1 text-[13px] text-ink-60 transition-colors hover:border-line-strong hover:text-ink-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${pressed ? '' : 'opacity-45'}`}
     >
       {color !== undefined && (
-        <i className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: color }} />
+        <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       )}
       <span className={pressed ? '' : 'line-through'}>{label}</span>
       {value !== undefined && (
         <>
           {' '}
-          <b className="font-medium text-ink-100">{value}</b>
+          <b className="font-data font-medium text-ink-100">{value}</b>
         </>
       )}
     </button>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SectionHeader } from './SectionHeader.tsx'
 
 /** Le chat "Pose ta question" : la question part vers /api/chat (fonction
  * serveur), qui répond toujours par un texte honnête. Le SQL exécuté est
@@ -57,52 +58,45 @@ export function ChatSection() {
   }
 
   return (
-    <section
-      aria-label="Pose ta question"
-      className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)"
-    >
-      <h2 className="mb-2 font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-        Pose ta question{' '}
-        <span className="font-normal tracking-normal normal-case">
-          réponses calculées sur les données du tableau de bord
-        </span>
-      </h2>
+    <section aria-label="Pose ta question" className="panel p-5 md:p-6">
+      <SectionHeader
+        title="Pose ta question"
+        subtitle="Réponses calculées sur les données du tableau de bord, jamais inventées."
+      />
 
       {exchanges.length === 0 && (
-        <p className="mb-2 text-[13px] text-ink-60">
+        <p className="text-[14px] leading-relaxed text-ink-60">
           Interroge librement les données : consommation, production, échanges, Tempo, Ecowatt...
         </p>
       )}
 
-      <div aria-live="polite" className="flex flex-col gap-2.5">
+      <div aria-live="polite" className="flex flex-col gap-4">
         {exchanges.map((exchange, index) => (
           <div key={`${String(index)}-${exchange.question}`}>
-            <p className="font-data text-[12px] text-ink-40">{exchange.question}</p>
+            <p className="eyebrow">{exchange.question}</p>
             {exchange.answer === null ? (
-              <p className="mt-0.5 text-[13.5px] text-ink-60">Je consulte les données...</p>
+              <p className="mt-2 text-[15px] text-ink-60">Je consulte les données...</p>
             ) : (
-              <>
-                <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-100">
-                  {exchange.answer}
-                </p>
+              <div className="mt-2 rounded-xl bg-raised p-4">
+                <p className="text-[15px] leading-relaxed text-ink-100">{exchange.answer}</p>
                 {exchange.sql !== undefined && (
-                  <details className="mt-1">
-                    <summary className="cursor-pointer font-data text-[10.5px] text-ink-40 hover:text-accent">
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-[12.5px] text-ink-40 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
                       voir la requête SQL
                     </summary>
-                    <code className="mt-1 block overflow-x-auto rounded-md bg-abyss p-2 font-data text-[10.5px] break-all whitespace-pre-wrap text-ink-60">
+                    <code className="mt-2 block overflow-x-auto rounded-lg border border-line bg-panel p-3 font-data text-[12px] break-all whitespace-pre-wrap text-ink-60">
                       {exchange.sql}
                     </code>
                   </details>
                 )}
-              </>
+              </div>
             )}
           </div>
         ))}
       </div>
 
       <form
-        className="mt-3 flex gap-2"
+        className="mt-4 flex gap-2"
         onSubmit={(event) => {
           event.preventDefault()
           ask(draft)
@@ -117,18 +111,18 @@ export function ChatSection() {
           onChange={(event) => {
             setDraft(event.target.value)
           }}
-          className="min-w-0 flex-1 rounded-md border border-line-strong bg-raised px-3 py-2 text-[13.5px] text-ink-100 placeholder:text-ink-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+          className="min-w-0 flex-1 rounded-full border border-line-strong bg-panel px-4 py-2.5 text-[14px] text-ink-100 placeholder:text-ink-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
         />
         <button
           type="submit"
           disabled={pending || draft.trim() === ''}
-          className="rounded-md border border-line-strong px-3.5 py-2 font-data text-xs text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
+          className="btn-primary shrink-0 whitespace-nowrap disabled:opacity-40"
         >
           Demander
         </button>
       </form>
 
-      <p className="mt-2.5 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-2">
         {SUGGESTED_QUESTIONS.map((question) => (
           <button
             key={question}
@@ -137,14 +131,14 @@ export function ChatSection() {
             onClick={() => {
               ask(question)
             }}
-            className="rounded-full border border-line px-2.5 py-1 font-data text-[11px] text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-40"
+            className="chip transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
           >
             {question}
           </button>
         ))}
-      </p>
+      </div>
 
-      <p className="mt-2.5 font-data text-[10.5px] text-ink-40">
+      <p className="mt-4 text-[12.5px] leading-relaxed text-ink-40">
         Réponses générées par IA (Mistral) à partir des seules données publiques du tableau de bord
         ; la requête exécutée est affichée. En cas de doute, la donnée brute fait foi.
       </p>

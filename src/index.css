@@ -3,21 +3,26 @@
 @import './styles/tokens.css';
 
 html {
+  color-scheme: light;
+}
+html[data-theme='dark'] {
   color-scheme: dark;
 }
 
 body {
   margin: 0;
-  /* halo signature de la maquette au-dessus du fond pétrole */
+  /* thème jour : halo bleu très léger en haut de page, fond clair */
   background:
-    radial-gradient(1100px 500px at 75% -10%, rgba(46, 230, 255, 0.05), transparent 60%),
+    radial-gradient(1100px 520px at 70% -12%, var(--color-accent-glow), transparent 60%),
     var(--color-abyss);
   color: var(--color-ink-100);
   font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Les chiffres du command center sont toujours tabulaires */
+/* Les chiffres sont toujours tabulaires */
 .font-data,
 .font-display {
   font-variant-numeric: tabular-nums;
@@ -25,7 +30,112 @@ body {
 
 ::selection {
   background-color: var(--color-accent);
-  color: var(--color-abyss);
+  color: #ffffff;
+}
+
+/* Vocabulaire de composants partagé par toutes les rubriques */
+@layer components {
+  /* carte de rubrique */
+  .panel {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-line);
+    background: var(--color-panel);
+    box-shadow: var(--shadow-card);
+  }
+  /* titre de rubrique : casse normale, lisible, humain */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-100);
+  }
+  .section-subtitle {
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--color-ink-60);
+  }
+  /* petit libellé de champ ou de colonne */
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-ink-40);
+  }
+  /* pastille d'information */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-panel);
+    padding: 4px 12px;
+    font-size: 12.5px;
+    color: var(--color-ink-60);
+  }
+  /* bouton principal */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #ffffff;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background-color 150ms ease;
+  }
+  .btn-primary:hover {
+    background: var(--color-accent-deep);
+  }
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  /* bouton secondaire */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-panel);
+    color: var(--color-ink-100);
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    transition:
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+  .btn-secondary:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .btn-secondary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  /* signature : le filet « courant » qui coule sous un titre */
+  .current-line {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-accent), #22c1e6, var(--color-accent));
+    background-size: 200% 100%;
+    animation: current-flow 6s linear infinite;
+  }
+}
+
+@keyframes current-flow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
 }
 
 /* Pastille LIVE : pulsation discrète, coupée si l'utilisateur préfère moins de mouvement */
@@ -39,18 +149,19 @@ body {
 
 @keyframes live-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(46, 230, 255, 0.45);
+    box-shadow: 0 0 0 0 var(--color-accent-glow);
   }
   70% {
-    box-shadow: 0 0 0 9px rgba(46, 230, 255, 0);
+    box-shadow: 0 0 0 9px transparent;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(46, 230, 255, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .live-dot {
+  .live-dot,
+  .current-line {
     animation: none;
   }
   .animate-pulse {

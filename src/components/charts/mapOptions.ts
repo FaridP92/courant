@@ -8,12 +8,10 @@ import type { NationalLatest, RegionalLatest } from '../../lib/api.ts'
 import { regionalAutonomy, regionalRenewableShare } from '../../lib/energy.ts'
 import { mapMetricOption, type MapMetric } from '../../lib/filters.ts'
 import { formatGigawatts, formatSignedGigawatts, formatWholePercent } from '../../lib/format.ts'
-import { accent, ink, surfaces } from '../../lib/palette.ts'
+import type { Theme } from '../../hooks/useTheme.ts'
+import { paletteFor, type Palette } from '../../lib/palette.ts'
 
 export const REGIONS_MAP_NAME = 'regions-metropole'
-const IMPORT_COLOR = '#678c9f'
-/** Surface des fonds sans donnée : une métrique incalculable ne se déguise pas en zéro. */
-const NEUTRAL_AREA = '#12212a'
 
 interface MetricRender {
   value: (region: RegionalLatest) => number | null
@@ -48,12 +46,13 @@ const METRIC_RENDER: Record<MapMetric, MetricRender> = {
 
 /** Échelle ancrée sur le maximum observé, plancher à 1 : les parts (0 à 1) se lisent
  * donc sur 100 %, les puissances en MW sur la région la plus forte. */
-function areaTint(value: number | null, anchor: number, signed: boolean): string {
-  if (value === null) return NEUTRAL_AREA
+function areaTint(value: number | null, anchor: number, signed: boolean, palette: Palette): string {
+  // fonds sans donnée : surface neutre, une métrique incalculable ne se déguise pas en zéro
+  if (value === null) return palette.neutralArea
   const intensity = Math.abs(value) / anchor
   return signed && value < 0
-    ? `rgba(103, 140, 159, ${String(0.12 + intensity * 0.43)})`
-    : `rgba(46, 230, 255, ${String(0.1 + intensity * 0.45)})`
+    ? `rgba(${palette.importFlowRgb}, ${String(0.12 + intensity * 0.43)})`
+    : `rgba(${palette.accentRgb}, ${String(0.1 + intensity * 0.45)})`
 }
 
 export function metricName(metric: MapMetric): string {
@@ -143,7 +142,10 @@ export function buildMapOption(
   selectedCode: string | null,
   reduceMotion: boolean,
   metric: MapMetric = 'consommation',
+  theme: Theme = 'light',
 ): MapChartOption {
+  const palette = paletteFor(theme)
+  const { accent, ink, surfaces } = palette
   const render = METRIC_RENDER[metric]
   const values = regions.map((r) => render.value(r))
   const anchor = Math.max(1, ...values.filter((v): v is number => v !== null).map(Math.abs))
@@ -161,7 +163,7 @@ export function buildMapOption(
   const geoRegions = regions.map((r, index) => ({
     name: r.region_code,
     itemStyle: {
-      areaColor: areaTint(values[index] ?? null, anchor, render.signed),
+      areaColor: areaTint(values[index] ?? null, anchor, render.signed, palette),
       borderColor: r.region_code === selectedCode ? accent : surfaces.lineStrong,
       borderWidth: r.region_code === selectedCode ? 2 : 0.8,
     },
@@ -179,7 +181,7 @@ export function buildMapOption(
               name: `${flow.name} · ${exporting ? 'export' : 'import'} ${formatGigawatts(Math.abs(value))} GW`,
               coords: exporting ? [flow.inside, flow.outside] : [flow.outside, flow.inside],
               value: Math.abs(value),
-              lineStyle: { color: exporting ? accent : IMPORT_COLOR },
+              lineStyle: { color: exporting ? accent : palette.importFlow },
             },
           ]
         })
@@ -192,7 +194,11 @@ export function buildMapOption(
       roam: false,
       aspectScale: 0.8,
       // Corse et fonds sans donnée : surface neutre
-      itemStyle: { areaColor: NEUTRAL_AREA, borderColor: surfaces.lineStrong, borderWidth: 0.8 },
+      itemStyle: {
+        areaColor: palette.neutralArea,
+        borderColor: surfaces.lineStrong,
+        borderWidth: 0.8,
+      },
       regions: geoRegions,
       emphasis: { disabled: true },
       select: { disabled: true },
@@ -200,7 +206,7 @@ export function buildMapOption(
     tooltip: {
       trigger: 'item',
       confine: true,
-      backgroundColor: 'rgba(10, 18, 22, 0.94)',
+      backgroundColor: palette.tooltipBackground,
       borderColor: surfaces.line,
       textStyle: { color: ink.mid, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 },
     },

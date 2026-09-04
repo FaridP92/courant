@@ -1,5 +1,6 @@
 /** Choix exclusif en segments (période, granularité...) : un seul contrôle accessible,
- * réutilisé par tous les critères mutuellement exclusifs du tableau de bord. */
+ * réutilisé par tous les critères mutuellement exclusifs du tableau de bord.
+ * Forme « pilule » du thème jour : segment actif plein en accent, inactifs discrets. */
 
 export interface SegmentedOption<T extends string> {
   readonly value: T
@@ -28,7 +29,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className="flex overflow-hidden rounded-md border border-line-strong"
+      className="inline-flex rounded-full border border-line-strong bg-panel p-0.5"
     >
       {options.map((option) => {
         const unavailable = disabled[option.value]
@@ -42,9 +43,9 @@ export function SegmentedControl<T extends string>({
             onClick={() => {
               onChange(option.value)
             }}
-            className={`px-3 py-1 font-data text-xs transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`rounded-full px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 ${
               value === option.value
-                ? 'bg-accent font-semibold text-abyss'
+                ? 'bg-accent font-semibold text-white'
                 : 'text-ink-60 hover:text-ink-100'
             }`}
           >

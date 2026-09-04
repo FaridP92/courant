@@ -30,20 +30,26 @@ import {
   buildRegionalMixOption,
   buildTerritoryConsoOption,
   curveColor,
-  REGIONAL_FUELS,
+  regionalFuels,
   territoryChartAriaLabel,
   type TerritoryCurve,
 } from './charts/explorerOptions.ts'
+import { useTheme } from '../hooks/useTheme.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { ExportButton } from './ExportButton.tsx'
 import { Gauge } from './Gauge.tsx'
 import { RangeSelector } from './RangeSelector.tsx'
+import { SectionHeader } from './SectionHeader.tsx'
 
 const RANGE_HINTS: Record<NationalRange, string> = {
   '24h': 'environ 24 h au pas source',
   '7d': '7 jours en moyenne horaire',
   '30d': '30 jours en moyenne horaire',
 }
+
+/** Sélecteur de la barre d'actions : pilule claire, focus visible. */
+const SELECT_CLASS =
+  'rounded-full border border-line-strong bg-panel px-3.5 py-1.5 text-[13.5px] text-ink-100 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 interface GaugeSpec {
   label: string
@@ -199,7 +205,11 @@ export function ExplorerSection({
     onCompareChange(compare.filter((c) => territoryKey(c) !== territoryKey(ref)))
   }
 
-  const mixOption = useMemo(() => buildRegionalMixOption(regionalPoints), [regionalPoints])
+  const { theme } = useTheme()
+  const mixOption = useMemo(
+    () => buildRegionalMixOption(regionalPoints, theme),
+    [regionalPoints, theme],
+  )
 
   const label = territoryLabel(resolved)
 
@@ -219,7 +229,7 @@ export function ExplorerSection({
     })
     return [{ name: label, points }, ...comparisons]
   }, [label, points, compare, firstCompare, secondCompare, regionOptions, metroOptions])
-  const consoOption = useMemo(() => buildTerritoryConsoOption(curves), [curves])
+  const consoOption = useMemo(() => buildTerritoryConsoOption(curves, theme), [curves, theme])
   const exportRows =
     territory.kind === 'region'
       ? regionalExportRows(regionalPoints)
@@ -230,176 +240,184 @@ export function ExplorerSection({
       id="explorer"
       tabIndex={-1}
       aria-label="Explorateur par territoire"
-      className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card) outline-none"
+      className="panel p-5 outline-none md:p-6"
     >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-          Explorer{' '}
-          <span className="font-normal tracking-normal normal-case">
-            un territoire, une période : jauges, statistiques, courbes ·{' '}
-            {RANGE_HINTS[effectiveRange]}
-          </span>
-        </h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <label
-            htmlFor="explorer-territory"
-            className="font-data text-[11px] tracking-[0.08em] text-ink-40 uppercase"
-          >
-            Territoire
-          </label>
-          <select
-            id="explorer-territory"
-            value={territoryKey(territory)}
-            onChange={(event) => {
-              handleTerritoryValue(event.target.value)
-            }}
-            className="rounded-md border border-line-strong bg-raised px-2.5 py-1.5 font-data text-xs text-ink-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <option value="france">France entière</option>
-            <optgroup label="Régions">
-              {/* le territoire courant reste sélectionnable même si la liste ne le porte plus */}
-              {territory.kind === 'region' &&
-                !regionOptions.some((r) => r.code === territory.code) && (
-                  <option value={territoryKey(territory)}>{label}</option>
-                )}
-              {regionOptions.map((r) => (
-                <option key={r.code} value={`region:${r.code}`}>
-                  {r.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Métropoles">
-              {territory.kind === 'metropole' &&
-                !metroOptions.some((m) => m.code === territory.code) && (
-                  <option value={territoryKey(territory)}>{label}</option>
-                )}
-              {metroOptions.map((m) => (
-                <option key={m.code} value={`metropole:${m.code}`}>
-                  {m.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          <label
-            htmlFor="explorer-compare"
-            className="font-data text-[11px] tracking-[0.08em] text-ink-40 uppercase"
-          >
-            Comparer
-          </label>
-          <select
-            id="explorer-compare"
-            value=""
-            disabled={compare.length >= MAX_COMPARE}
-            title={
-              compare.length >= MAX_COMPARE
-                ? `Deux comparaisons au plus : retirez-en une pour en ajouter une autre`
-                : 'Superposer un autre territoire à la courbe'
-            }
-            onChange={(event) => {
-              addCompare(event.target.value)
-            }}
-            className="rounded-md border border-line-strong bg-raised px-2.5 py-1.5 font-data text-xs text-ink-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <option value="">+ ajouter</option>
-            {comparableOptions.france && <option value="france">France entière</option>}
-            <optgroup label="Régions">
-              {comparableOptions.regions.map((r) => (
-                <option key={r.code} value={`region:${r.code}`}>
-                  {r.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Métropoles">
-              {comparableOptions.metropoles.map((m) => (
-                <option key={m.code} value={`metropole:${m.code}`}>
-                  {m.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          <RangeSelector
-            value={effectiveRange}
-            onChange={onRangeChange}
-            {...(territory.kind === 'metropole'
-              ? {
-                  disabled: {
-                    '30d': 'Historique métropoles limité à 7 jours (purge à la source)',
-                  },
+      <SectionHeader
+        title="Explorer un territoire"
+        subtitle="Choisis la France entière, une région ou une métropole, une période, et compare jusqu'à deux autres territoires."
+        actions={
+          <>
+            <span className="flex items-center gap-2">
+              <label htmlFor="explorer-territory" className="eyebrow">
+                Territoire
+              </label>
+              <select
+                id="explorer-territory"
+                value={territoryKey(territory)}
+                onChange={(event) => {
+                  handleTerritoryValue(event.target.value)
+                }}
+                className={SELECT_CLASS}
+              >
+                <option value="france">France entière</option>
+                <optgroup label="Régions">
+                  {/* le territoire courant reste sélectionnable même si la liste ne le porte plus */}
+                  {territory.kind === 'region' &&
+                    !regionOptions.some((r) => r.code === territory.code) && (
+                      <option value={territoryKey(territory)}>{label}</option>
+                    )}
+                  {regionOptions.map((r) => (
+                    <option key={r.code} value={`region:${r.code}`}>
+                      {r.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Métropoles">
+                  {territory.kind === 'metropole' &&
+                    !metroOptions.some((m) => m.code === territory.code) && (
+                      <option value={territoryKey(territory)}>{label}</option>
+                    )}
+                  {metroOptions.map((m) => (
+                    <option key={m.code} value={`metropole:${m.code}`}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </span>
+            <span className="flex items-center gap-2">
+              <label htmlFor="explorer-compare" className="eyebrow">
+                Comparer
+              </label>
+              <select
+                id="explorer-compare"
+                value=""
+                disabled={compare.length >= MAX_COMPARE}
+                title={
+                  compare.length >= MAX_COMPARE
+                    ? `Deux comparaisons au plus : retirez-en une pour en ajouter une autre`
+                    : 'Superposer un autre territoire à la courbe'
                 }
-              : {})}
-          />
-          <ExportButton
-            rows={exportRows}
-            filename={`courant-explorer-${territoryKey(territory).replace(':', '-')}-${effectiveRange}.csv`}
-          />
-        </div>
-      </div>
+                onChange={(event) => {
+                  addCompare(event.target.value)
+                }}
+                className={`${SELECT_CLASS} disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                <option value="">+ ajouter</option>
+                {comparableOptions.france && <option value="france">France entière</option>}
+                <optgroup label="Régions">
+                  {comparableOptions.regions.map((r) => (
+                    <option key={r.code} value={`region:${r.code}`}>
+                      {r.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Métropoles">
+                  {comparableOptions.metropoles.map((m) => (
+                    <option key={m.code} value={`metropole:${m.code}`}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </span>
+            <RangeSelector
+              value={effectiveRange}
+              onChange={onRangeChange}
+              {...(territory.kind === 'metropole'
+                ? {
+                    disabled: {
+                      '30d': 'Historique métropoles limité à 7 jours (purge à la source)',
+                    },
+                  }
+                : {})}
+            />
+            <ExportButton
+              rows={exportRows}
+              filename={`courant-explorer-${territoryKey(territory).replace(':', '-')}-${effectiveRange}.csv`}
+            />
+          </>
+        }
+      />
 
-      <div className="grid gap-3.5 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3.5">
-          {gauges !== null ? (
-            <div className="grid grid-cols-3 gap-2 xl:grid-cols-1 min-[480px]:max-xl:grid-cols-3">
-              {gauges.map((g) => (
-                <Gauge
-                  key={g.label}
-                  label={g.label}
-                  fraction={g.fraction}
-                  valueText={percentText(g.fraction)}
-                  hint={g.hint}
-                />
-              ))}
-            </div>
-          ) : territory.kind === 'metropole' ? (
-            <p className="rounded-(--radius-chip) border border-line bg-raised p-3 font-data text-xs text-ink-40">
-              Production non publiée à l'échelle des métropoles : jauges et mix indisponibles, la
-              consommation reste explorable.
-            </p>
-          ) : (
-            <p className="font-data text-xs text-ink-40">Jauges indisponibles pour le moment.</p>
-          )}
-          {gauges !== null && gaugesTs !== null && (
-            <p className="font-data text-[10.5px] text-ink-40">
-              Jauges : {formatFreshness(gaugesTs)}
-            </p>
-          )}
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">Jauges</p>
+            {gauges !== null ? (
+              <div className="grid grid-cols-3 gap-2 xl:grid-cols-1 min-[480px]:max-xl:grid-cols-3">
+                {gauges.map((g) => (
+                  <Gauge
+                    key={g.label}
+                    label={g.label}
+                    fraction={g.fraction}
+                    valueText={percentText(g.fraction)}
+                    hint={g.hint}
+                  />
+                ))}
+              </div>
+            ) : territory.kind === 'metropole' ? (
+              <p className="rounded-xl bg-raised p-3 text-[13px] text-ink-60">
+                Production non publiée à l'échelle des métropoles : jauges et mix indisponibles, la
+                consommation reste explorable.
+              </p>
+            ) : (
+              <p className="text-[13px] text-ink-40">Jauges indisponibles pour le moment.</p>
+            )}
+            {gauges !== null && gaugesTs !== null && (
+              <p className="text-[12.5px] text-ink-40">{formatFreshness(gaugesTs)}</p>
+            )}
+          </div>
           {stats !== null && (
-            <dl className="grid gap-1.5 font-data text-[11.5px] text-ink-60">
-              <div className="flex justify-between gap-2">
-                <dt>Moyenne</dt>
-                <dd className="font-medium text-ink-100">{formatGigawatts(stats.average)} GW</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                {/* en 7 j / 30 j la série est en moyenne horaire : la pointe l'est aussi */}
-                <dt>{effectiveRange === '24h' ? 'Pointe' : 'Pointe horaire'}</dt>
-                <dd className="text-right font-medium text-ink-100">
-                  {formatGigawatts(stats.peak.value)} GW{' '}
-                  <span className="font-normal text-ink-40">
+            <div className="flex flex-col gap-2">
+              <p className="eyebrow">Statistiques</p>
+              <dl className="grid grid-cols-3 gap-2 xl:grid-cols-1">
+                <div className="rounded-xl bg-raised p-3">
+                  <dt className="eyebrow">Moyenne</dt>
+                  <dd className="mt-1.5 font-display text-[20px] leading-none font-bold text-ink-100 [font-stretch:112%]">
+                    {formatGigawatts(stats.average)} GW
+                  </dd>
+                  <dd className="mt-1 text-[12.5px] text-ink-40">sur la période</dd>
+                </div>
+                <div className="rounded-xl bg-raised p-3">
+                  {/* en 7 j / 30 j la série est en moyenne horaire : la pointe l'est aussi */}
+                  <dt className="eyebrow">
+                    {effectiveRange === '24h' ? 'Pointe' : 'Pointe horaire'}
+                  </dt>
+                  <dd className="mt-1.5 font-display text-[20px] leading-none font-bold text-ink-100 [font-stretch:112%]">
+                    {formatGigawatts(stats.peak.value)} GW
+                  </dd>
+                  <dd className="mt-1 text-[12.5px] text-ink-40">
                     {formatMoment(stats.peak.ts, effectiveRange)}
-                  </span>
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt>{effectiveRange === '24h' ? 'Creux' : 'Creux horaire'}</dt>
-                <dd className="text-right font-medium text-ink-100">
-                  {formatGigawatts(stats.low.value)} GW{' '}
-                  <span className="font-normal text-ink-40">
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-raised p-3">
+                  <dt className="eyebrow">
+                    {effectiveRange === '24h' ? 'Creux' : 'Creux horaire'}
+                  </dt>
+                  <dd className="mt-1.5 font-display text-[20px] leading-none font-bold text-ink-100 [font-stretch:112%]">
+                    {formatGigawatts(stats.low.value)} GW
+                  </dd>
+                  <dd className="mt-1 text-[12.5px] text-ink-40">
                     {formatMoment(stats.low.ts, effectiveRange)}
-                  </span>
-                </dd>
-              </div>
-            </dl>
+                  </dd>
+                </div>
+              </dl>
+            </div>
           )}
           {lastTs !== null && (
-            <p className="font-data text-[10.5px] text-ink-40">{formatFreshness(lastTs)}</p>
+            <p className="text-[12.5px] text-ink-40">{formatFreshness(lastTs)}</p>
           )}
         </div>
 
         <div>
           {points.length > 0 ? (
             <>
-              <h3 className="mb-1 font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">
-                Consommation · {label}
-              </h3>
+              <SectionHeader
+                as="h3"
+                title={`Consommation · ${label}`}
+                subtitle={`Série sur ${RANGE_HINTS[effectiveRange]}.`}
+              />
               <ChartSlot heightClass="h-[200px] w-full">
                 <EChart
                   option={consoOption}
@@ -407,12 +425,12 @@ export function ExplorerSection({
                   className="h-[200px] w-full"
                 />
               </ChartSlot>
-              <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-data text-[11px] text-ink-60">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-ink-60">
                 {curves.map((curve, index) => (
-                  <span key={curve.name} className="flex items-center gap-1.5">
+                  <span key={curve.name} className="flex items-center gap-2">
                     <i
-                      className="h-[3px] w-3.5 rounded-sm"
-                      style={{ backgroundColor: curveColor(index) }}
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: curveColor(index, theme) }}
                     />
                     {curve.name}
                   </span>
@@ -425,22 +443,25 @@ export function ExplorerSection({
                     onClick={() => {
                       removeCompare(ref)
                     }}
-                    className="rounded-md border border-line-strong px-1.5 py-0.5 text-[10.5px] text-ink-40 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    className="chip transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     retirer {labelFor(ref)}
                   </button>
                 ))}
                 {compare.length > 0 && (
-                  <span className="text-[10.5px] text-ink-40">
+                  <span className="text-[12.5px] text-ink-40">
                     jauges et statistiques restent celles de {label}
                   </span>
                 )}
-              </p>
+              </div>
               {territory.kind === 'region' && regionalPoints.length > 0 && (
                 <>
-                  <h3 className="mt-3 mb-1 font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">
-                    Mix de production du territoire
-                  </h3>
+                  <SectionHeader
+                    as="h3"
+                    title="Mix de production du territoire"
+                    subtitle="D'où vient l'électricité produite ici, filière par filière, sur le même axe de temps."
+                    className="mt-6"
+                  />
                   <ChartSlot heightClass="h-[190px] w-full">
                     <EChart
                       option={mixOption}
@@ -448,32 +469,32 @@ export function ExplorerSection({
                       className="h-[190px] w-full"
                     />
                   </ChartSlot>
-                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-data text-[11px] text-ink-60">
-                    {REGIONAL_FUELS.map((fuel) => (
-                      <span key={fuel.key} className="flex items-center gap-1.5">
+                  <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-2 text-[13px] text-ink-60">
+                    {regionalFuels(theme).map((fuel) => (
+                      <span key={fuel.key} className="flex items-center gap-2">
                         <i
-                          className="h-2.5 w-2.5 rounded-[3px]"
+                          className="h-2.5 w-2.5 rounded-full"
                           style={{ backgroundColor: fuel.color }}
                         />
                         {fuel.label}
                       </span>
                     ))}
-                  </p>
+                  </div>
                 </>
               )}
             </>
           ) : status === 'pending' ? (
-            <div className="flex h-[200px] items-center justify-center font-data text-sm text-ink-40">
+            <div className="flex h-[200px] items-center justify-center text-[13.5px] text-ink-40">
               Chargement de la série...
             </div>
           ) : (
-            <div className="flex h-[200px] items-center justify-center font-data text-sm text-ink-40">
+            <div className="flex h-[200px] items-center justify-center text-[13.5px] text-ink-40">
               Série indisponible pour ce territoire sur cette période.
             </div>
           )}
         </div>
       </div>
-      <p className="mt-2 font-data text-[10.5px] text-ink-40">
+      <p className="mt-4 text-[12.5px] text-ink-40">
         Granularité : France, régions, métropoles. RTE ne publie pas plus fin en temps réel (pas de
         maille département ou commune).
       </p>

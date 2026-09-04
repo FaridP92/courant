@@ -11,14 +11,10 @@
 import type { NationalPoint } from '../../lib/api.ts'
 import { formatGigawatts, formatParisClock } from '../../lib/format.ts'
 import { NO_HIGHLIGHTS, type HighlightSet } from '../../lib/highlights.ts'
-import {
-  accent,
-  forecastDayBefore,
-  forecastToday,
-  FUELS,
-  ink,
-  surfaces,
-} from '../../lib/palette.ts'
+import type { Theme } from '../../hooks/useTheme.ts'
+import { paletteFor, type Palette } from '../../lib/palette.ts'
+
+const LIGHT = paletteFor('light')
 
 type TimeValue = [number, number | null]
 
@@ -68,7 +64,7 @@ interface LineSeries {
 /** Voiles des plages au-dessus d'un seuil : teintes neutres ou accent, jamais le
  * rouge ni l'orange, réservés aux signaux Ecowatt et Tempo (règle 9). */
 const CARBON_BAND_COLOR = 'rgba(155, 180, 190, 0.14)'
-const DEVIATION_BAND_COLOR = 'rgba(46, 230, 255, 0.10)'
+const deviationBandColor = (palette: Palette): string => `rgba(${palette.accentRgb}, 0.10)`
 
 type BandArea = NonNullable<LineSeries['markArea']>
 
@@ -130,12 +126,12 @@ export function heroScaleBoundsGw(points: readonly NationalPoint[]): {
 const toPairs = (points: readonly NationalPoint[], field: keyof NationalPoint): TimeValue[] =>
   points.map((p) => [Date.parse(p.ts), p[field] as number | null])
 
-export function timeAxis(): object {
+export function timeAxis(palette: Palette = LIGHT): object {
   return {
     type: 'time',
-    axisLine: { lineStyle: { color: surfaces.line } },
+    axisLine: { lineStyle: { color: palette.surfaces.line } },
     axisLabel: {
-      color: ink.low,
+      color: palette.ink.low,
       fontFamily: 'IBM Plex Mono, monospace',
       fontSize: 10,
       hideOverlap: true,
@@ -145,37 +141,41 @@ export function timeAxis(): object {
   }
 }
 
-export function gwAxis(extra: object = {}): object {
+export function gwAxis(extra: object = {}, palette: Palette = LIGHT): object {
   return {
     type: 'value',
     axisLabel: {
-      color: ink.low,
+      color: palette.ink.low,
       fontFamily: 'IBM Plex Mono, monospace',
       fontSize: 10,
       formatter: (mw: number) => String(Math.round(mw / 1000)),
     },
-    splitLine: { lineStyle: { color: surfaces.grid } },
+    splitLine: { lineStyle: { color: palette.surfaces.grid } },
     name: 'GW',
-    nameTextStyle: { color: ink.low, fontFamily: 'IBM Plex Mono, monospace', fontSize: 10 },
+    nameTextStyle: {
+      color: palette.ink.low,
+      fontFamily: 'IBM Plex Mono, monospace',
+      fontSize: 10,
+    },
     ...extra,
   }
 }
 
-export function gwTooltip(extra: object = {}): object {
+export function gwTooltip(extra: object = {}, palette: Palette = LIGHT): object {
   return {
     trigger: 'axis',
     confine: true,
-    backgroundColor: 'rgba(10, 18, 22, 0.94)',
-    borderColor: surfaces.line,
-    textStyle: { color: ink.mid, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 },
+    backgroundColor: palette.tooltipBackground,
+    borderColor: palette.surfaces.line,
+    textStyle: { color: palette.ink.mid, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 },
     valueFormatter: (value: unknown) =>
       typeof value === 'number' ? `${formatGigawatts(value)} GW` : 'indisponible',
     axisPointer: {
       type: 'line',
-      lineStyle: { color: accent, opacity: 0.4 },
+      lineStyle: { color: palette.accent, opacity: 0.4 },
       label: {
-        backgroundColor: surfaces.raised,
-        color: ink.hi,
+        backgroundColor: palette.surfaces.raised,
+        color: palette.ink.hi,
         formatter: ({ value }: { value: number | string }) =>
           typeof value === 'number' ? formatParisClock(new Date(value)) : value,
       },
@@ -194,7 +194,7 @@ const monoEndLabel = (text: string, color: string): EndLabel => ({
 
 type CursorMarkLine = NonNullable<LineSeries['markLine']>
 
-function cursorMarkLine(lastTs: string, label: string | null): CursorMarkLine {
+function cursorMarkLine(lastTs: string, label: string | null, palette: Palette): CursorMarkLine {
   return {
     symbol: 'none',
     silent: true,
@@ -204,11 +204,11 @@ function cursorMarkLine(lastTs: string, label: string | null): CursorMarkLine {
         : {
             show: true,
             formatter: label,
-            color: accent,
+            color: palette.accent,
             fontFamily: 'IBM Plex Mono, monospace',
             fontSize: 9,
           },
-    lineStyle: { color: accent, type: 'dashed', width: 1 },
+    lineStyle: { color: palette.accent, type: 'dashed', width: 1 },
     data: [{ xAxis: Date.parse(lastTs) }],
   }
 }
@@ -228,7 +228,10 @@ export function buildHeroChartOption(
   points: readonly NationalPoint[],
   now: Date = new Date(),
   highlights: HighlightSet = NO_HIGHLIGHTS,
+  theme: Theme = 'light',
 ): TimeColumnChartOption {
+  const palette = paletteFor(theme)
+  const { accent, forecastToday, forecastDayBefore } = palette
   const last = lastCompletePoint(points)
   const realized: LineSeries = {
     name: 'Réalisé',
@@ -242,14 +245,14 @@ export function buildHeroChartOption(
     z: 3,
   }
   if (last) {
-    realized.markLine = cursorMarkLine(last.ts, cursorLabel(last.ts, now))
+    realized.markLine = cursorMarkLine(last.ts, cursorLabel(last.ts, now), palette)
   }
   // mise en évidence, jamais masquage : les séries gardent tous leurs points.
   // ECharts n'accepte qu'une markArea par série : le voile carbone se pose sur le
   // réalisé, celui de l'écart sur la prévision J-1 qui lui sert de référence.
   const carbonArea = bandArea(highlights.co2, CARBON_BAND_COLOR)
   if (carbonArea !== null) realized.markArea = carbonArea
-  const deviationArea = bandArea(highlights.deviation, DEVIATION_BAND_COLOR)
+  const deviationArea = bandArea(highlights.deviation, deviationBandColor(palette))
   const dayBefore: LineSeries = {
     name: 'Prévision J-1',
     type: 'line',
@@ -267,12 +270,15 @@ export function buildHeroChartOption(
   return {
     animation: false,
     grid: { left: 46, right: 40, top: 28, bottom: 26 },
-    xAxis: timeAxis(),
-    yAxis: gwAxis({
-      min: ({ min }: { min: number }) => Math.max(0, Math.floor((min - 2000) / 5000) * 5000),
-      max: ({ max }: { max: number }) => Math.ceil((max + 2000) / 5000) * 5000,
-    }),
-    tooltip: gwTooltip(),
+    xAxis: timeAxis(palette),
+    yAxis: gwAxis(
+      {
+        min: ({ min }: { min: number }) => Math.max(0, Math.floor((min - 2000) / 5000) * 5000),
+        max: ({ max }: { max: number }) => Math.ceil((max + 2000) / 5000) * 5000,
+      },
+      palette,
+    ),
+    tooltip: gwTooltip({}, palette),
     dataZoom: insideZoom(),
     series: [
       realized,
@@ -296,9 +302,12 @@ export function buildHeroChartOption(
 export function buildMixChartOption(
   points: readonly NationalPoint[],
   hiddenKeys: ReadonlySet<string> = new Set(),
+  theme: Theme = 'light',
 ): TimeColumnChartOption {
+  const palette = paletteFor(theme)
+  const { surfaces, ink } = palette
   const last = lastCompletePoint(points)
-  const visibleFuels = FUELS.filter((fuel) => !hiddenKeys.has(fuel.key))
+  const visibleFuels = palette.fuels.filter((fuel) => !hiddenKeys.has(fuel.key))
   // labels directs exigés par la palette validée : nucléaire + la 2e filière dominante
   let secondKey: string | null = null
   if (last) {
@@ -315,9 +324,9 @@ export function buildMixChartOption(
   return {
     animation: false,
     grid: { left: 46, right: 82, top: 12, bottom: 26 },
-    xAxis: timeAxis(),
-    yAxis: gwAxis(),
-    tooltip: gwTooltip({ order: 'seriesDesc' }),
+    xAxis: timeAxis(palette),
+    yAxis: gwAxis({}, palette),
+    tooltip: gwTooltip({ order: 'seriesDesc' }, palette),
     dataZoom: insideZoom(),
     series: visibleFuels.map((fuel, index) => {
       const series: LineSeries = {
@@ -341,7 +350,7 @@ export function buildMixChartOption(
         }
       }
       if (index === 0 && last) {
-        series.markLine = cursorMarkLine(last.ts, null)
+        series.markLine = cursorMarkLine(last.ts, null, palette)
       }
       return series
     }),

@@ -2,35 +2,34 @@ import { useState } from 'react'
 import type { EcowattDay, TempoColor, TempoSnapshot } from '../lib/api.ts'
 import { formatFreshness } from '../lib/format.ts'
 import { ecowattDaySummary, ecowattNote, formatDayShort, tempoNote } from '../lib/signals.ts'
+import { SectionHeader } from './SectionHeader.tsx'
 
 type QueryStatus = 'pending' | 'error' | 'success'
 
-/* Vert / orange / rouge : usage exclusif des signaux (règle 9 du projet). */
-const ECOWATT_LEVELS: Record<
-  1 | 2 | 3,
-  { word: string; dotClass: string; wordClass: string; tileClass: string }
-> = {
+/* Vert / orange / rouge : usage exclusif des signaux (règle 9 du projet).
+ * Thème jour : la couleur est portée par la pastille et le bord de la tuile, le mot
+ * reste en encre pleine (vert et orange sur blanc ne passent pas le contraste AA). */
+const ECOWATT_LEVELS: Record<1 | 2 | 3, { word: string; dotClass: string; tileClass: string }> = {
   1: {
     word: 'Vert',
     dotClass: 'bg-signal-ok',
-    wordClass: 'text-signal-ok',
     tileClass: 'border-line',
   },
   2: {
     word: 'Tendu',
     dotClass: 'bg-signal-tense',
-    wordClass: 'text-signal-tense',
     tileClass: 'border-signal-tense',
   },
   3: {
     // « Très tendu » : aligné sur la note, et jamais en collision avec le Rouge Tempo
     word: 'Très tendu',
     dotClass: 'bg-signal-critical',
-    wordClass: 'text-signal-critical',
     tileClass: 'border-signal-critical',
   },
 }
 
+/* Tempo se lit comme une couleur : la pastille large porte la couleur du jour.
+ * Le Blanc reçoit un filet, sans quoi il disparaîtrait sur la carte blanche. */
 const TEMPO_LEVELS: Record<
   TempoColor,
   { word: string; dotClass: string; wordClass: string; tileClass: string }
@@ -43,7 +42,7 @@ const TEMPO_LEVELS: Record<
   },
   WHITE: {
     word: 'Blanc',
-    dotClass: 'bg-tempo-white',
+    dotClass: 'border border-line-strong bg-tempo-white',
     wordClass: 'text-ink-100',
     tileClass: 'border-line',
   },
@@ -64,28 +63,28 @@ const HOUR_CLASSES: Record<number, string> = {
   3: 'h-3.5 bg-signal-critical',
 }
 
+const TILE_BASE =
+  'flex flex-col items-center gap-1.5 rounded-xl border bg-panel px-2 py-3 text-center'
+
 function TileContent({
   label,
   word,
   dotClass,
   wordClass,
+  swatchClass,
 }: {
   label: string
   word: string
   dotClass: string
   wordClass: string
+  swatchClass: string
 }) {
   // des span (contenu de phrasé) : TileContent vit aussi dans un <button>
   return (
     <>
-      <span className="block font-data text-[10.5px] tracking-[0.08em] text-ink-40 uppercase">
-        {label}
-      </span>
-      <span
-        className={`mx-auto my-1.5 block h-3 w-3 rounded-full ${dotClass}`}
-        aria-hidden="true"
-      />
-      <span className={`block font-data text-[11px] font-semibold ${wordClass}`}>{word}</span>
+      <span className="eyebrow">{label}</span>
+      <span className={`rounded-full ${swatchClass} ${dotClass}`} aria-hidden="true" />
+      <span className={`text-[12.5px] leading-tight font-semibold ${wordClass}`}>{word}</span>
     </>
   )
 }
@@ -98,10 +97,8 @@ function SignalTile(props: {
   tileClass: string
 }) {
   return (
-    <div
-      className={`rounded-(--radius-chip) border bg-raised px-1.5 py-2 text-center ${props.tileClass}`}
-    >
-      <TileContent {...props} />
+    <div className={`${TILE_BASE} ${props.tileClass}`}>
+      <TileContent {...props} swatchClass="h-4 w-11" />
     </div>
   )
 }
@@ -123,9 +120,15 @@ function EcowattTile({
       aria-controls="ecowatt-detail"
       title={pressed ? 'Replier le détail horaire' : 'Voir le détail heure par heure'}
       onClick={onToggle}
-      className={`rounded-(--radius-chip) border bg-raised px-1.5 py-2 text-center transition-colors hover:border-accent focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${pressed ? 'border-accent' : level.tileClass}`}
+      className={`${TILE_BASE} transition-colors hover:border-accent focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-accent ${pressed ? 'border-accent bg-accent-soft' : level.tileClass}`}
     >
-      <TileContent label={formatDayShort(day.day)} {...level} />
+      <TileContent
+        label={formatDayShort(day.day)}
+        word={level.word}
+        dotClass={level.dotClass}
+        wordClass="text-ink-100"
+        swatchClass="h-3 w-3"
+      />
     </button>
   )
 }
@@ -134,7 +137,7 @@ function EcowattTile({
 function EcowattDayDetail({ day }: { day: EcowattDay }) {
   const byPas = new Map((day.hours ?? []).map((h) => [h.pas, h.hvalue]))
   return (
-    <div className="mt-2" id="ecowatt-detail">
+    <div className="mt-3 rounded-xl border border-line bg-raised p-3" id="ecowatt-detail">
       {/* bande décorative : le résumé textuel en dessous porte toute l'information */}
       <div
         className="grid grid-cols-[repeat(24,1fr)] items-end gap-px overflow-hidden"
@@ -151,18 +154,15 @@ function EcowattDayDetail({ day }: { day: EcowattDay }) {
           )
         })}
       </div>
-      <p
-        className="mt-0.5 flex justify-between font-data text-[9px] text-ink-40"
-        aria-hidden="true"
-      >
+      <p className="mt-1 flex justify-between font-data text-[11px] text-ink-40" aria-hidden="true">
         <span>0 h</span>
         <span>12 h</span>
         <span>24 h</span>
       </p>
-      <p className="mt-1 font-data text-[11px] text-ink-60">
+      <p className="mt-2 text-[13px] text-ink-60">
         {formatDayShort(day.day)} : {ecowattDaySummary(day)}
       </p>
-      <p className="mt-0.5 font-data text-[9.5px] text-ink-40">
+      <p className="mt-1 text-[11.5px] text-ink-40">
         vert plein = bas carbone · vert pâle = vert · orange = tendu · rouge = très tendu · case
         vide : non publié
       </p>
@@ -172,6 +172,15 @@ function EcowattDayDetail({ day }: { day: EcowattDay }) {
 
 function frenchCount(n: number, singular: string): string {
   return `${String(n)} ${singular}${n > 1 ? 's' : ''}`
+}
+
+function ColumnHeading({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="mb-3">
+      <h3 className="eyebrow">{title}</h3>
+      <p className="mt-1 text-[12.5px] text-ink-60">{hint}</p>
+    </div>
+  )
 }
 
 export function SignalsSection({
@@ -198,24 +207,17 @@ export function SignalsSection({
     tempo === null ? null : (tempo.tomorrow_updated_at ?? tempo.today_updated_at)
 
   return (
-    <article
-      className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)"
-      aria-label="Signaux Ecowatt et Tempo"
-    >
-      <h2 className="mb-3 font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-        Signaux{' '}
-        <span className="font-normal tracking-normal normal-case">
-          Ecowatt et Tempo, couleurs officielles RTE
-        </span>
-      </h2>
-      <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2">
+    <article className="panel p-5 md:p-6" aria-label="Signaux Ecowatt et Tempo">
+      <SectionHeader
+        title="Ecowatt et Tempo"
+        subtitle="Ecowatt dit si le réseau est tendu, Tempo donne la couleur du jour et de demain pour les abonnés."
+      />
+      <div className="grid grid-cols-1 gap-5 min-[380px]:grid-cols-2">
         <div>
-          <h3 className="mb-2 font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">
-            Ecowatt{' '}
-            <span className="font-normal tracking-normal normal-case">
-              chaque jour déplie son détail heure par heure
-            </span>
-          </h3>
+          <ColumnHeading
+            title="Ecowatt"
+            hint="Ouvrez un jour pour voir son détail heure par heure."
+          />
           {/* trois états : contenu, chargement silencieux, indisponibilité dite */}
           {days.length > 0 ? (
             <>
@@ -232,23 +234,22 @@ export function SignalsSection({
                 ))}
               </div>
               {selected !== null && <EcowattDayDetail day={selected} />}
-              {note !== null && <p className="mt-2 text-[12.5px] text-ink-60">{note}</p>}
+              {note !== null && <p className="mt-3 text-[13.5px] text-ink-60">{note}</p>}
               {generatedAt !== null && (
-                <p className="mt-1.5 font-data text-[10.5px] text-ink-40">
+                <p className="mt-1.5 text-[12px] text-ink-40">
                   Signal RTE, {formatFreshness(generatedAt)}
                 </p>
               )}
             </>
           ) : ecowattStatus === 'pending' ? null : (
-            <p className="font-data text-sm text-ink-40">
-              Signal Ecowatt indisponible pour le moment.
-            </p>
+            <p className="text-[13.5px] text-ink-60">Signal Ecowatt indisponible pour le moment.</p>
           )}
         </div>
         <div>
-          <h3 className="mb-2 font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase">
-            Tempo
-          </h3>
+          <ColumnHeading
+            title="Tempo"
+            hint="La couleur tarifaire annoncée par RTE, jour par jour."
+          />
           {tempo !== null ? (
             <>
               <div className="grid grid-cols-2 gap-2">
@@ -275,21 +276,21 @@ export function SignalsSection({
                   <SignalTile label="Demain" {...TEMPO_LEVELS[tempo.tomorrow_color]} />
                 )}
               </div>
-              <p className="mt-2 text-[12.5px] text-ink-60">{tempoNote(tempo)}</p>
-              <p className="mt-1.5 font-data text-[10.5px] text-ink-40">
+              <p className="mt-3 text-[13.5px] text-ink-60">{tempoNote(tempo)}</p>
+              <p className="mt-1.5 text-[12px] text-ink-40">
                 Saison depuis le 1er septembre {tempo.season_start.slice(0, 4)} :{' '}
                 {frenchCount(tempo.red_days_used, 'rouge')} ·{' '}
                 {frenchCount(tempo.white_days_used, 'blanc')} ·{' '}
                 {frenchCount(tempo.blue_days_used, 'bleu')}.
               </p>
               {tempoFreshness !== null && (
-                <p className="font-data text-[10.5px] text-ink-40">
+                <p className="text-[12px] text-ink-40">
                   Publication RTE, {formatFreshness(tempoFreshness)}
                 </p>
               )}
             </>
           ) : tempoStatus === 'pending' ? null : (
-            <p className="font-data text-sm text-ink-40">
+            <p className="text-[13.5px] text-ink-60">
               Calendrier Tempo indisponible pour le moment.
             </p>
           )}

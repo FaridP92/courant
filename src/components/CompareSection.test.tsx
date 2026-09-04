@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { TempoCalendarDay, TrvTariff } from '../lib/api.ts'
+import type { SupplierOffer, TempoCalendarDay, TrvTariff } from '../lib/api.ts'
 import { enedisDailyXlsx } from '../lib/__fixtures__/enedisXlsx.ts'
 import { CompareSection } from './CompareSection.tsx'
 
@@ -71,7 +71,15 @@ afterEach(() => {
 
 describe('CompareSection', () => {
   it('saisie manuelle : Base et abonnement affichés, Tempo dit honnêtement pourquoi il manque', () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     expect(screen.getByText(/Saisis ta consommation/)).toBeInTheDocument()
     expect(screen.queryByRole('table')).toBeNull()
 
@@ -88,7 +96,15 @@ describe('CompareSection', () => {
   })
 
   it('la puissance souscrite change l abonnement', () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     fireEvent.change(screen.getByLabelText('Consommation annuelle (kWh)'), {
       target: { value: '4500' },
     })
@@ -102,6 +118,8 @@ describe('CompareSection', () => {
         tariffs={[tariff('BASE', 120, { base: 0.1985 }, 3), ...tariffs]}
         tariffsStatus="success"
         calendar={calendar}
+        offers={[]}
+        offersStatus="success"
       />,
     )
     expect(screen.getByLabelText('Puissance souscrite')).toHaveValue('6')
@@ -113,6 +131,8 @@ describe('CompareSection', () => {
         tariffs={[tariff('BASE', 288.12, { base: 0.1985 }, 9)]}
         tariffsStatus="success"
         calendar={calendar}
+        offers={[]}
+        offersStatus="success"
       />,
     )
     expect(screen.getByLabelText('Puissance souscrite')).toHaveValue('9')
@@ -123,7 +143,15 @@ describe('CompareSection', () => {
   })
 
   it('saisie HP/HC connue : le tarif heures creuses se calcule et Base suit la somme', () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     fireEvent.change(screen.getByLabelText('Consommation annuelle (kWh)'), {
       target: { value: '4500' },
     })
@@ -141,7 +169,15 @@ describe('CompareSection', () => {
   it('import Enedis : période réelle, Tempo exact jour par jour, aucune requête réseau', async () => {
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importCsv(CSV)
 
     // 1 kWh HP bleu + 2 kWh HC bleu + 3 kWh HP rouge = 6 kWh, du 5/1 11:30 au 6/1 18:30 : 31 h
@@ -155,7 +191,15 @@ describe('CompareSection', () => {
   })
 
   it('une plage heures creuses vide bloque le tarif HP/HC sans toucher à Tempo (22 h-6 h fixes)', async () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importCsv(CSV)
     fireEvent.change(screen.getByLabelText('Heures creuses de'), { target: { value: '06:00' } })
     expect(screen.getByRole('row', { name: /Heures creuses/ })).toHaveTextContent(
@@ -165,14 +209,30 @@ describe('CompareSection', () => {
   })
 
   it('import illisible : message honnête, aucun tableau', async () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importCsv('Horodate;Valeur\n2026-01-05T00:00:00+01:00;5')
     expect(screen.getByRole('alert')).toHaveTextContent(/pas un export Enedis reconnu/)
     expect(screen.queryByRole('table')).toBeNull()
   })
 
   it('jours hors calendrier Tempo : le coût Tempo est refusé, pas estimé', async () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={[]} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={[]}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importCsv(CSV)
     expect(screen.getByRole('row', { name: /Tempo/ })).toHaveTextContent(
       /calendrier Tempo indisponible/,
@@ -185,7 +245,15 @@ describe('CompareSection', () => {
       day: `2026-01-0${String(i + 1)}`,
       color: i === 6 ? 'RED' : 'BLUE',
     }))
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={fullCalendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={fullCalendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importFile(dailyXlsxFile())
 
     // 6 jours mesurés sur 7 (le 3 janvier est « NA ») : 27,565 kWh
@@ -210,7 +278,15 @@ describe('CompareSection', () => {
   })
 
   it('export quotidien hors calendrier Tempo : la fourchette Tempo est refusée, pas devinée', async () => {
-    render(<CompareSection tariffs={tariffs} tariffsStatus="success" calendar={calendar} />)
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     await importFile(dailyXlsxFile())
     expect(screen.getByRole('row', { name: /Tempo/ })).toHaveTextContent(
       /hors du calendrier Tempo connu/,
@@ -219,13 +295,91 @@ describe('CompareSection', () => {
   })
 
   it('pendant le chargement, la rubrique ne prétend pas que les grilles manquent', () => {
-    render(<CompareSection tariffs={[]} tariffsStatus="pending" calendar={[]} />)
+    render(
+      <CompareSection
+        tariffs={[]}
+        tariffsStatus="pending"
+        calendar={[]}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     expect(screen.getByText(/Chargement des grilles/)).toBeInTheDocument()
     expect(screen.queryByText(/indisponible/)).toBeNull()
   })
 
   it('grilles indisponibles : la rubrique le dit au lieu d afficher des prix vides', () => {
-    render(<CompareSection tariffs={[]} tariffsStatus="error" calendar={[]} />)
+    render(
+      <CompareSection
+        tariffs={[]}
+        tariffsStatus="error"
+        calendar={[]}
+        offers={[]}
+        offersStatus="success"
+      />,
+    )
     expect(screen.getByText(/Grilles tarifaires indisponibles/)).toBeInTheDocument()
+  })
+})
+
+const octopus: SupplierOffer = {
+  supplier: 'Octopus Energy',
+  offer: 'Eco-conso',
+  option: 'BASE',
+  p_souscrite: 6,
+  fixed_ttc: 165.24,
+  prices_ttc: { base: 0.1873 },
+  pricing_type: 'fixe',
+  price_locked_until: '2027-08-31',
+  green: true,
+  source_url: 'https://example.invalid/octopus.pdf',
+  grid_date: '2026-08-01',
+  checked_at: '2026-09-01T06:00:00Z',
+}
+
+describe('CompareSection : offres des fournisseurs', () => {
+  it('classe les offres du moins cher au plus cher, signale la meilleure et donne l écart', () => {
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[octopus]}
+        offersStatus="success"
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Consommation annuelle (kWh)'), {
+      target: { value: '4500' },
+    })
+    const rows = screen.getAllByRole('row').slice(1)
+    // 165,24 + 4500 × 0,1873 = 1 008,09 : moins cher que le tarif réglementé (1 122,93)
+    expect(rows[0]).toHaveTextContent(/Octopus Energy/)
+    expect(rows[0]).toHaveTextContent(/Le moins cher/)
+    expect(rows[0]).toHaveTextContent(/1.008,09/)
+    expect(rows[0]).toHaveTextContent(/référence/)
+    expect(rows[0]).toHaveTextContent(/Prix fixe jusqu'au/)
+    expect(rows[0]).toHaveTextContent(/Électricité verte/)
+    expect(rows[1]).toHaveTextContent(/EDF/)
+    expect(rows[1]).toHaveTextContent(/Tarif Bleu Base/)
+    expect(rows[1]).toHaveTextContent(/Tarif réglementé/)
+    expect(rows[1]).toHaveTextContent(/\+114,84/)
+    expect(
+      screen.getByText(/1 fournisseur de marché en plus du tarif réglementé/),
+    ).toBeInTheDocument()
+  })
+
+  it('dit honnêtement quand les offres de marché manquent', () => {
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[]}
+        offersStatus="error"
+      />,
+    )
+    expect(
+      screen.getByText(/Offres des fournisseurs de marché : indisponibles/),
+    ).toBeInTheDocument()
   })
 })

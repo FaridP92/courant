@@ -3,7 +3,7 @@
  * Tout est TTC, arrondi au centime. Aucune estimation sur profil type : si un prix
  * manque ou si la donnée ne permet pas un calcul exact, on renvoie null et l'UI le dit.
  */
-import type { TempoColor, TrvTariff } from './api.ts'
+import type { PriceGrid, TempoColor } from './api.ts'
 
 export interface CostBreakdown {
   /** Abonnement TTC sur la période calculée. */
@@ -54,12 +54,12 @@ function breakdown(subscription: number, energy: number): CostBreakdown {
 }
 
 /** Un prix absent, null ou non fini vaut « pas de calcul », jamais 0. */
-function priceOf(tariff: TrvTariff, key: string): number | null {
+function priceOf(tariff: PriceGrid, key: string): number | null {
   const price: unknown = tariff.prices_ttc[key]
   return typeof price === 'number' && Number.isFinite(price) ? price : null
 }
 
-export function computeBase(kwh: number, tariff: TrvTariff): CostBreakdown | null {
+export function computeBase(kwh: number, tariff: PriceGrid): CostBreakdown | null {
   const price = priceOf(tariff, 'base')
   if (price === null) return null
   return breakdown(tariff.fixed_ttc, kwh * price)
@@ -67,7 +67,7 @@ export function computeBase(kwh: number, tariff: TrvTariff): CostBreakdown | nul
 
 export function computeHphc(
   split: { hp: number; hc: number },
-  tariff: TrvTariff,
+  tariff: PriceGrid,
 ): CostBreakdown | null {
   const hp = priceOf(tariff, 'hp')
   const hc = priceOf(tariff, 'hc')
@@ -75,7 +75,7 @@ export function computeHphc(
   return breakdown(tariff.fixed_ttc, split.hp * hp + split.hc * hc)
 }
 
-export function computeTempo(buckets: TempoBuckets, tariff: TrvTariff): CostBreakdown | null {
+export function computeTempo(buckets: TempoBuckets, tariff: PriceGrid): CostBreakdown | null {
   let energy = 0
   for (const key of Object.keys(EMPTY_TEMPO_BUCKETS) as TempoBucket[]) {
     const price = priceOf(tariff, key)
@@ -200,7 +200,7 @@ function range(subscription: number, energyMin: number, energyMax: number): Cost
   }
 }
 
-export function rangeHphc(kwh: number, tariff: TrvTariff): CostRange | null {
+export function rangeHphc(kwh: number, tariff: PriceGrid): CostRange | null {
   const hp = priceOf(tariff, 'hp')
   const hc = priceOf(tariff, 'hc')
   if (hp === null || hc === null) return null
@@ -218,7 +218,7 @@ export interface DailyReading {
 export function rangeTempoDaily(
   days: readonly DailyReading[],
   calendar: ReadonlyMap<string, TempoColor>,
-  tariff: TrvTariff,
+  tariff: PriceGrid,
 ): { range: CostRange; uncoveredKwh: number } | null {
   let min = 0
   let max = 0

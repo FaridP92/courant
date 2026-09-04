@@ -71,7 +71,7 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
         role="group"
         aria-label="Maturité des mesures"
         title="Maturité des mesures nationales : courbe, mix et sparklines"
-        className="flex flex-wrap items-center gap-1 font-data text-[11.5px] text-ink-60"
+        className="flex flex-wrap items-center gap-1"
       >
         {MATURITIES.map((option) => {
           const pressed = filters.maturity.has(option.value)
@@ -90,7 +90,7 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
         })}
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="font-data text-[10.5px] tracking-[0.08em] text-ink-40 uppercase">CO2</span>
+        <span className="eyebrow">CO2</span>
         <SegmentedControl
           label="Seuil d'intensité CO2"
           options={CO2_OPTIONS}
@@ -101,9 +101,7 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
         />
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="font-data text-[10.5px] tracking-[0.08em] text-ink-40 uppercase">
-          Écart J-1
-        </span>
+        <span className="eyebrow">Écart J-1</span>
         <SegmentedControl
           label="Seuil d'écart au programme J-1"
           options={DEVIATION_OPTIONS}
@@ -115,7 +113,7 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
       </div>
       {/* le filtre ne fait jamais disparaître des points en silence : il dit combien il en écarte */}
       {maturityFiltered && kept < total && (
-        <p className="font-data text-[11px] text-ink-40" title="Points portant encore une mesure">
+        <p className="text-[12.5px] text-ink-40" title="Points portant encore une mesure">
           {kept} points sur {total}
         </p>
       )}
@@ -124,7 +122,7 @@ export function FilterBar({ filters, onChange, onReset, kept, total }: FilterBar
           type="button"
           onClick={onReset}
           title="Revenir à la vue par défaut"
-          className="rounded-md border border-line-strong px-2 py-0.5 font-data text-[11.5px] text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="btn-secondary px-3 py-1.5 text-[13px]"
         >
           Réinitialiser
         </button>

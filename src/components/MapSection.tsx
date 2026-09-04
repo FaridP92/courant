@@ -12,9 +12,11 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.ts'
 import { mapExportRows } from '../lib/exports.ts'
 import { MAP_METRICS, mapMetricOption, type MapMetric } from '../lib/filters.ts'
 import { buildMapOption, mapAriaLabel, REGIONS_MAP_NAME } from './charts/mapOptions.ts'
+import { useTheme } from '../hooks/useTheme.ts'
 import { ChartSlot, EChart } from './charts/LazyEChart.tsx'
 import { SegmentedControl } from './controls/SegmentedControl.tsx'
 import { ExportButton } from './ExportButton.tsx'
+import { SectionHeader } from './SectionHeader.tsx'
 
 type RegionsStatus = 'pending' | 'error' | 'success'
 
@@ -68,12 +70,12 @@ function RegionPanel({
     { label: 'Thermique', value: region.thermique },
   ]
   return (
-    <div className="mt-3 rounded-md border border-line-strong bg-raised p-3">
+    <div className="mt-4 rounded-xl border border-line bg-raised p-4">
       <div className="flex items-start justify-between gap-3">
         <h3
           ref={titleRef}
           tabIndex={-1}
-          className="font-data text-[11px] font-semibold tracking-[0.14em] text-ink-40 uppercase outline-none"
+          className="text-[15px] font-semibold text-ink-100 outline-none"
         >
           {region.region_name}
         </h3>
@@ -81,16 +83,16 @@ function RegionPanel({
           type="button"
           onClick={onClose}
           aria-label="Fermer le détail de la région"
-          className="font-data text-xs text-ink-40 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="text-[15px] leading-none text-ink-40 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           ✕
         </button>
       </div>
-      <p className="mt-1 font-display text-[26px] leading-none font-extrabold text-ink-100 [font-stretch:115%]">
+      <p className="mt-1.5 font-display text-[26px] leading-none font-extrabold text-ink-100 [font-stretch:115%]">
         {formatGigawatts(region.consommation)}
         <span className="ml-1 text-sm font-semibold text-ink-60">GW</span>
       </p>
-      <p className="mt-1 font-data text-[11.5px] text-ink-60">
+      <p className="mt-1.5 text-[12.5px] text-ink-60">
         {shareLabel !== null && `${shareLabel} · `}
         {balance === null
           ? 'échanges indisponibles'
@@ -98,23 +100,24 @@ function RegionPanel({
             ? `exporte ${formatGigawatts(balance)} GW`
             : `importe ${formatGigawatts(-balance)} GW`}
       </p>
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-data text-[11px] text-ink-60">
+      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-ink-60">
         {generation
           .filter((g) => g.value !== null && g.value > 0)
           .map((g) => (
             <span key={g.label}>
-              {g.label} <b className="font-medium text-ink-100">{formatGigawatts(g.value ?? 0)}</b>
+              {g.label}{' '}
+              <b className="font-data font-medium text-ink-100">{formatGigawatts(g.value ?? 0)}</b>
             </span>
           ))}
       </p>
-      <p className="mt-1.5 font-data text-[10.5px] text-ink-40">{formatFreshness(region.ts)}</p>
+      <p className="mt-2 text-[12px] text-ink-40">{formatFreshness(region.ts)}</p>
       {onExplore !== undefined && (
         <button
           type="button"
           onClick={() => {
             onExplore(region.region_code)
           }}
-          className="mt-2 rounded-md border border-line-strong px-2.5 py-1 font-data text-xs text-ink-60 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="btn-secondary mt-3 px-3 py-1.5 text-[13px]"
         >
           Creuser dans l'Explorateur ↓
         </button>
@@ -156,9 +159,10 @@ export function MapSection({
   }
 
   // mémoïsé : un rendu sans changement de données ne relance ni setOption ni l'animation
+  const { theme } = useTheme()
   const mapOption = useMemo(
-    () => buildMapOption(regions, national, selectedCode, reduceMotion, metric),
-    [regions, national, selectedCode, reduceMotion, metric],
+    () => buildMapOption(regions, national, selectedCode, reduceMotion, metric, theme),
+    [regions, national, selectedCode, reduceMotion, metric, theme],
   )
   const ariaLabel = useMemo(() => mapAriaLabel(regions, metric), [regions, metric])
 
@@ -169,24 +173,22 @@ export function MapSection({
     regionsStatus === 'error' || (regionsStatus === 'success' && regions.length === 0)
 
   return (
-    <article className="rounded-(--radius-card) border border-line bg-panel p-4 shadow-(--shadow-card)">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-        <h2 className="font-data text-[11px] font-semibold tracking-[0.16em] text-ink-40 uppercase">
-          Régions et échanges{' '}
-          <span className="font-normal tracking-normal normal-case">
-            teinte = {mapMetricOption(metric).hint} · clic pour le détail
-          </span>
-        </h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <SegmentedControl
-            label="Métrique de la carte"
-            options={MAP_METRICS}
-            value={metric}
-            onChange={onMetricChange}
-          />
-          <ExportButton rows={exportRows} filename={`courant-regions-${metric}.csv`} />
-        </div>
-      </div>
+    <article className="panel p-5 md:p-6">
+      <SectionHeader
+        title="Régions et échanges"
+        subtitle={`Consommation et échanges par région : teinte = ${mapMetricOption(metric).hint} · clic pour le détail.`}
+        actions={
+          <>
+            <SegmentedControl
+              label="Métrique de la carte"
+              options={MAP_METRICS}
+              value={metric}
+              onChange={onMetricChange}
+            />
+            <ExportButton rows={exportRows} filename={`courant-regions-${metric}.csv`} />
+          </>
+        }
+      />
       {geoQuery.isSuccess && regions.length > 0 ? (
         <ChartSlot heightClass="h-[380px] w-full">
           <EChart
@@ -202,7 +204,7 @@ export function MapSection({
           />
         </ChartSlot>
       ) : (
-        <div className="flex h-[380px] items-center justify-center font-data text-sm text-ink-40">
+        <div className="flex h-[380px] items-center justify-center text-sm text-ink-40">
           {geoQuery.isError
             ? 'Fond de carte indisponible'
             : regionsUnavailable
@@ -222,7 +224,7 @@ export function MapSection({
                   onClick={() => {
                     toggleRegion(r.region_code)
                   }}
-                  className="sr-only rounded-md border border-line-strong bg-raised px-2 py-1 font-data text-xs text-ink-60 focus:not-sr-only focus-visible:outline-2 focus-visible:outline-accent"
+                  className="sr-only rounded-full border border-line-strong bg-panel px-3 py-1.5 text-[13px] text-ink-60 focus:not-sr-only focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   {r.region_name}
                 </button>
@@ -239,7 +241,7 @@ export function MapSection({
           onExplore={onExploreRegion}
         />
       )}
-      <p className="mt-2 font-data text-[10.5px] text-ink-40">
+      <p className="mt-3 text-[12.5px] text-ink-40">
         Corse : non couverte par éCO2mix régional. Flux : particules dans le sens du courant, cyan =
         export, gris = import.
       </p>

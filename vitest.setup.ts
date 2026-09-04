@@ -23,3 +23,29 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
       dispatchEvent: () => false,
     }) as MediaQueryList
 }
+
+// jsdom peut ne pas exposer localStorage selon l'origine du document (useTheme) :
+// stub mémoire, vidé entre les tests par les tests eux-mêmes.
+if (
+  typeof window !== 'undefined' &&
+  (window as { localStorage?: Storage }).localStorage === undefined
+) {
+  const store = new Map<string, string>()
+  const memoryStorage: Storage = {
+    get length() {
+      return store.size
+    },
+    clear: () => {
+      store.clear()
+    },
+    getItem: (key) => store.get(key) ?? null,
+    key: (index) => [...store.keys()][index] ?? null,
+    removeItem: (key) => {
+      store.delete(key)
+    },
+    setItem: (key, value) => {
+      store.set(key, value)
+    },
+  }
+  Object.defineProperty(window, 'localStorage', { value: memoryStorage, configurable: true })
+}

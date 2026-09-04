@@ -10,6 +10,7 @@ import {
   fetchRegionalSeries,
   fetchTempo,
   fetchTempoCalendar,
+  fetchSupplierOffers,
   fetchTrvCurrent,
   type NationalRange,
 } from '../lib/api.ts'
@@ -73,6 +74,16 @@ export function useTrvCurrent() {
     queryKey: ['trv-current'],
     queryFn: fetchTrvCurrent,
     staleTime: 60 * 60 * 1000,
+  })
+}
+
+/** Offres des fournisseurs : collectées chaque semaine, une heure de cache suffit. */
+export function useSupplierOffers() {
+  return useQuery({
+    queryKey: ['supplier-offers'],
+    queryFn: fetchSupplierOffers,
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
   })
 }
 
