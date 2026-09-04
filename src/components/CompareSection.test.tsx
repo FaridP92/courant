@@ -394,6 +394,37 @@ describe('CompareSection : offres des fournisseurs', () => {
     expect(row).not.toHaveTextContent(/Prix fixe/)
   })
 
+  it('résume en une ligne les offres non calculables qui partagent le même motif', () => {
+    const hphc = (supplier: string): SupplierOffer => ({
+      ...octopus,
+      supplier,
+      offer: 'Heures creuses',
+      option: 'HPHC',
+      prices_ttc: { hp: 0.21, hc: 0.16 },
+    })
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[octopus, hphc('Engie'), hphc('Plenitude'), hphc('Alpiq')]}
+        offersStatus="success"
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Consommation annuelle (kWh)'), {
+      target: { value: '4500' },
+    })
+    // quatre lignes HP/HC (tarif réglementé + trois offres) partagent le même motif
+    expect(screen.getByText('4 offres non calculables')).toBeInTheDocument()
+    // les quatre lignes individuelles ont disparu au profit du résumé
+    expect(screen.queryAllByRole('row', { name: /Heures creuses/ })).toHaveLength(0)
+    expect(screen.getByRole('row', { name: /4 offres non calculables/ })).toHaveTextContent(
+      /cochez/,
+    )
+    // Tempo reste une ligne à part : son motif est unique
+    expect(screen.getByRole('row', { name: /Tempo/ })).toHaveTextContent(/courbe de charge/)
+  })
+
   it('dit honnêtement quand les offres de marché manquent', () => {
     render(
       <CompareSection

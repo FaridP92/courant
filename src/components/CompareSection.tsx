@@ -98,6 +98,15 @@ const periodLabel = (days: number): string =>
 
 const dayText = (day: string): string => formatParisDate(`${day}T12:00:00Z`)
 
+/** Une échéance ou une date de grille se lit avec son année : « 25 août 2027 ». */
+const longDate = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'Europe/Paris',
+})
+const dateWithYear = (day: string): string => longDate.format(new Date(`${day}T12:00:00Z`))
+
 function trvGrids(tariffs: readonly TrvTariff[]): Grid[] {
   return tariffs.map((t) => ({
     id: `trv-${t.option}-${String(t.p_souscrite)}`,
@@ -121,7 +130,7 @@ function marketGrids(offers: readonly SupplierOffer[]): Grid[] {
       tags.push(
         o.price_locked_until === null
           ? 'Prix fixe'
-          : `Prix fixe jusqu'au ${dayText(o.price_locked_until)}`,
+          : `Prix fixe jusqu'au ${dateWithYear(o.price_locked_until)}`,
       )
     } else if (o.pricing_type === 'remise_trv') {
       tags.push('Indexé sur le tarif réglementé')
@@ -374,6 +383,24 @@ export function CompareSection({
   ])
 
   const hasAnyCost = rows.some((r) => r.cost !== null || r.range !== null)
+  // les offres non calculables pour un même motif se résument en une ligne dès trois
+  const groupedReasons = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of rows) {
+      if (r.cost === null && r.range === null && r.reason !== null) {
+        counts.set(r.reason, (counts.get(r.reason) ?? 0) + 1)
+      }
+    }
+    return new Set([...counts.entries()].filter(([, n]) => n >= 3).map(([reason]) => reason))
+  }, [rows])
+  const visibleRows = rows.filter(
+    (r) =>
+      !(r.cost === null && r.range === null && r.reason !== null && groupedReasons.has(r.reason)),
+  )
+  const summaryRows = [...groupedReasons].map((reason) => ({
+    reason,
+    count: rows.filter((r) => r.cost === null && r.range === null && r.reason === reason).length,
+  }))
   const cheapest = rows.find((r) => r.cost !== null) ?? null
 
   const onFile = (file: File | undefined) => {
@@ -625,7 +652,7 @@ export function CompareSection({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
+                  {visibleRows.map((row) => {
                     const best = cheapest !== null && row.grid.id === cheapest.grid.id
                     const delta =
                       row.cost !== null && cheapest?.cost !== undefined && cheapest.cost !== null
@@ -689,6 +716,16 @@ export function CompareSection({
                       </tr>
                     )
                   })}
+                  {summaryRows.map((s) => (
+                    <tr key={s.reason} className="border-b border-line/70 opacity-70">
+                      <th scope="row" className="px-3 py-3 text-left font-normal" colSpan={5}>
+                        <span className="font-semibold text-ink-100">
+                          {count(s.count, 'offre non calculable', 'offres non calculables')}
+                        </span>
+                        <span className="ml-2 text-[12px] text-ink-40">{s.reason}</span>
+                      </th>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               {daily !== null && (

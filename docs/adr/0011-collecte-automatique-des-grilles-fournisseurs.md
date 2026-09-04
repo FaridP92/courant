@@ -49,6 +49,37 @@ chemin).
 7. **Journal et alerte** comme WF1 à WF9 : `log_ingestion_run`, courriel après trois
    échecs consécutifs (une URL changée est la cause la plus probable).
 
+## Ce que la mise en service a appris (4 septembre 2026)
+
+- L'annotation OCR est exacte sur les grilles simples (EDF, Plenitude, TotalEnergies,
+  Engie Adapt) mais invente des puissances sur les grilles qui listent chaque kVA de 3 à
+  36 avec des prix en cellules fusionnées (Alpiq, OHM), confond les colonnes HT et TTC
+  (Octopus) et n'est pas déterministe d'un passage à l'autre. L'OCR a aussi altéré un
+  chiffre (0,196798 lu 0,198798).
+- Le PDF est donc envoyé en base64 (Mistral ne le télécharge plus lui-même), lu **deux
+  fois** ; les passages sont fusionnés et toute discordance rejette le document. Chaque
+  chiffre annoté doit figurer tel quel dans la couche texte du PDF, qui porte les chiffres
+  exacts.
+- Une fiche qui ne publie que la part fourniture (Engie « Elec Référence 3 ans ») passait
+  les contrôles de forme : d'où une **plausibilité relative au tarif réglementé** lu dans
+  `v_trv_current` (abonnement à ±40 %, kWh entre 0,6 et 1,6 fois le TRV), et une offre
+  annoncée « remise sur le TRV » ne peut pas coter le TRV lui-même.
+- Une grille à deux colonnes pour une même offre (TotalEnergies Access : « identiques au
+  tarif réglementé » et « remisés pendant trois ans ») est ambiguë : elle est rejetée tant
+  que l'annotation ne distingue pas les deux variantes.
+- Les offres Tempo (six prix) ne sont pas représentables dans une grille Base / HP-HC et
+  sont exclues.
+- Le remplacement se fait **par document** (migration 0025) : une fiche lue remplace ses
+  offres, une fiche en échec conserve les précédentes, une fiche retirée des sources est
+  purgée. Le run est un succès dès qu'un document est publié ; les documents en échec sont
+  listés dans le journal sans déclencher l'alerte.
+- Premier passage complet : 152 lignes publiées (EDF Zen Fixe, Vert Électrique, Vert
+  Électrique Régional ; Engie Elec Adapt 1 an ; Plenitude Plenifix 1 an ; TotalEnergies
+  Verte Fixe, Standard Fixe, Classique, Online), toutes identiques à la vérité terrain
+  établie par la recherche contradictoire. Alpiq, OHM Énergie et Octopus Energy restent
+  non publiés tant que leurs grilles ne passent pas les contrôles ; Ekwateur (page HTML)
+  attend une lecture dédiée.
+
 ## Conséquences
 
 - Le comparateur affiche, pour chaque offre, la date de la grille et le lien vers le
