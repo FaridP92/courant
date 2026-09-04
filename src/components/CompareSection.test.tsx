@@ -368,6 +368,32 @@ describe('CompareSection : offres des fournisseurs', () => {
     ).toBeInTheDocument()
   })
 
+  it('étiquette une offre à prix révisable sans la confondre avec un prix fixe', () => {
+    const revisable: SupplierOffer = {
+      ...octopus,
+      supplier: 'EDF',
+      offer: 'Vert Électrique',
+      pricing_type: 'marche',
+      price_locked_until: null,
+      green: false,
+    }
+    render(
+      <CompareSection
+        tariffs={tariffs}
+        tariffsStatus="success"
+        calendar={calendar}
+        offers={[revisable]}
+        offersStatus="success"
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Consommation annuelle (kWh)'), {
+      target: { value: '4500' },
+    })
+    const row = screen.getByRole('row', { name: /Vert Électrique/ })
+    expect(row).toHaveTextContent(/Prix révisable par le fournisseur/)
+    expect(row).not.toHaveTextContent(/Prix fixe/)
+  })
+
   it('dit honnêtement quand les offres de marché manquent', () => {
     render(
       <CompareSection

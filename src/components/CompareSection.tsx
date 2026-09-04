@@ -123,8 +123,10 @@ function marketGrids(offers: readonly SupplierOffer[]): Grid[] {
           ? 'Prix fixe'
           : `Prix fixe jusqu'au ${dayText(o.price_locked_until)}`,
       )
-    } else {
+    } else if (o.pricing_type === 'remise_trv') {
       tags.push('Indexé sur le tarif réglementé')
+    } else {
+      tags.push('Prix révisable par le fournisseur')
     }
     if (o.green) tags.push('Électricité verte')
     return {

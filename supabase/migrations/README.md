@@ -30,6 +30,7 @@ reproductibilité. L'ordre des fichiers est l'ordre d'application.
 | 0021_chat_log_retention.sql | Journal du chat : purge opportuniste à 90 jours (minimisation RGPD) |
 | 0022_trv_tariffs_foundation.sql | Tarifs réglementés CRE (Base, HP/HC, Tempo), RPC, v_trv_current et v_tempo_calendar |
 | 0023 | `0023_supplier_offers_foundation.sql` | Offres des fournisseurs de marché : table `ingest.supplier_offers`, RPC `ingest_supplier_offers_raw` (remplacement par fournisseur, contrôles de plausibilité), vue `v_supplier_offers_current`. |
+| 0024 | `0024_supplier_offers_pricing_marche.sql` | Type de prix « marche » (révisable, non indexé) accepté pour les offres fournisseurs ; RPC recréée. |
 
 Conventions : colonnes de mesures aux noms exacts des champs ODRÉ (contrat de source,
 introspection du 2026-08-28, voir ADR-0003) ; identifiants structurels en anglais.

@@ -234,8 +234,9 @@ export interface SupplierOffer extends PriceGrid {
   supplier: string
   offer: string
   option: 'BASE' | 'HPHC'
-  /** fixe = prix bloqué, remise_trv = pourcentage du tarif réglementé. */
-  pricing_type: 'fixe' | 'remise_trv'
+  /** fixe = prix bloqué, remise_trv = pourcentage du tarif réglementé, marche = révisable
+   * par le fournisseur (ni bloqué ni indexé sur un indice de marché). */
+  pricing_type: 'fixe' | 'remise_trv' | 'marche'
   price_locked_until: string | null
   green: boolean
   source_url: string
