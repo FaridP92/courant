@@ -1,0 +1,60 @@
+# ADR-0011 : collecte automatique des grilles tarifaires des fournisseurs
+
+Date : 2026-09-04. Statut : accepté. Complète l'ADR-0009.
+
+## Contexte
+
+Le comparateur doit afficher, à côté du tarif réglementé, ce que paierait un particulier
+chez les principaux fournisseurs de marché. Le commanditaire a exclu toute saisie
+manuelle des grilles (« c'est mort, il faut automatiser la récupération des tarifs »),
+et le projet interdit tout chiffre inventé : chaque prix affiché doit venir d'un document
+public du fournisseur, daté et cité.
+
+Une recherche contradictoire (un agent par fournisseur, un vérificateur par fournisseur,
+lecture des PDF officiels) a établi le 4 septembre 2026 les documents en vigueur : EDF
+(Zen Fixe, Vert Électrique, Vert Électrique Régional, Zen Online), Plenitude (Plenifix
+1 an), Ekwateur (prix fixe, variantes européenne et française), Octopus Energy (OctoEco
+Fixe Base et HP/HC, OctoTempo), Alpiq (Stable, Référence, Sérénité), OHM Énergie
+(Classique, Fixe 2 ans, Premi'Ohm, Week-End), Engie et TotalEnergies (voir le journal
+de recherche). Vattenfall ne vend plus d'électricité aux particuliers en France.
+
+Ces grilles sont des PDF (parfois plusieurs offres par document, cellules fusionnées
+quand un prix vaut pour plusieurs puissances) ou une page HTML (Ekwateur). Une
+extraction en texte brut perd la structure des tableaux ; les URL de certains PDF
+changent à chaque révision (Octopus sur un CDN à empreinte, OHM avec le mois dans le
+chemin).
+
+## Décision
+
+1. **Un workflow n8n hebdomadaire (WF10)** lit chaque source publique et remplace la
+   grille de chaque fournisseur en base via la RPC `ingest_supplier_offers_raw`
+   (migration 0023, complétée par 0024).
+2. **Les PDF passent par l'OCR documentaire de Mistral avec annotation structurée** :
+   l'appel `/v1/ocr` reçoit un schéma JSON strict (offres, type de prix, date de
+   grille, blocage, une ligne par puissance et par option) et rend le document déjà
+   structuré, cellules fusionnées comprises. Testé sur la grille EDF Zen Fixe : 17 lignes
+   exactes en 17 secondes, identiques à la lecture humaine.
+3. **Les pages HTML passent par le chat Mistral en sortie JSON stricte** sur le texte
+   nettoyé de la page, avec le même schéma.
+4. **Découverte des URL instables** : le workflow lit la page légale d'Octopus et y
+   trouve les PDF de grille courants ; les autres URL sont stables ou datées dans le
+   chemin et surveillées par l'alerte.
+5. **Trois garde-fous côté base** : contrôles de plausibilité (abonnement 30 à 3 000 €
+   par an, kWh 0,05 à 1,50 €, puissance 3 à 36 kVA, options cohérentes), remplacement
+   complet par fournisseur seulement quand tous ses documents ont été lus (un document
+   en échec conserve la grille précédente), texte source de chaque valeur conservé.
+6. **Périmètre** : offres à prix fixe, offres définies comme une remise sur le tarif
+   réglementé, offres à prix révisable non indexé. Les offres indexées sur un indice de
+   marché sont exclues (leur coût n'est pas calculable sans hypothèse).
+7. **Journal et alerte** comme WF1 à WF9 : `log_ingestion_run`, courriel après trois
+   échecs consécutifs (une URL changée est la cause la plus probable).
+
+## Conséquences
+
+- Le comparateur affiche, pour chaque offre, la date de la grille et le lien vers le
+  document ; l'état « offres indisponibles » reste possible et honnête.
+- Le coût de collecte est marginal (une vingtaine de pages OCR par semaine).
+- Une nouvelle offre ou un nouveau fournisseur se déclare dans la liste des sources du
+  WF10 ; une offre retirée du document disparaît de la base au run suivant.
+- La règle 6 du projet (pas de scraping) reste amendée par l'ADR-0009 pour ces documents
+  publics à vocation d'information tarifaire.
