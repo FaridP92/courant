@@ -69,6 +69,11 @@ chemin).
   que l'annotation ne distingue pas les deux variantes.
 - Les offres Tempo (six prix) ne sont pas représentables dans une grille Base / HP-HC et
   sont exclues.
+- L'annotation confond parfois la date de la grille et la fin du blocage de prix
+  (TotalEnergies : « jusqu'au 2 septembre 2026 » pour une grille datée du 2 septembre).
+  Une fin de blocage n'est donc retenue que pour une offre à prix fixe, à au moins 60
+  jours et au plus quatre ans devant la date du run ; sinon la ligne est publiée sans
+  échéance.
 - Le remplacement se fait **par document** (migration 0025) : une fiche lue remplace ses
   offres, une fiche en échec conserve les précédentes, une fiche retirée des sources est
   purgée. Le run est un succès dès qu'un document est publié ; les documents en échec sont
