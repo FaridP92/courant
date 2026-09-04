@@ -42,3 +42,27 @@ Le WARN daltonisme impose, partout où ces couleurs se touchent :
 3. jamais d'information portée par la couleur seule (règle d'accessibilité du brief).
 
 Toute évolution de palette repasse par le validateur avant merge.
+
+## Thème jour (ADR-0010, 2026-09-04)
+
+Le validateur du skill dataviz n'étant pas disponible dans la session, la palette jour a
+été vérifiée par un script équivalent (contraste WCAG, lightness OKLab, distance OKLab
+entre paires adjacentes, simulation deutéranopie et protanopie, Machado 2009).
+
+Ordre d'empilement : nucléaire `#c8930c`, hydraulique `#2e7bc9`, gaz `#c7477a`,
+éolien `#1b9aae`, solaire `#d4791a`, bioénergies `#0f7a48`, charbon `#3f4e5e`,
+fioul `#8e63b5`.
+
+| Paire adjacente         | Normal | Deutéranopie | Protanopie |
+| ----------------------- | ------ | ------------ | ---------- |
+| nucléaire / hydraulique | 30,6   | 31,6         | 26,7       |
+| hydraulique / gaz       | 25,1   | 16,0         | 12,9       |
+| gaz / éolien            | 26,7   | 8,0          | 15,4       |
+| éolien / solaire        | 24,8   | 20,1         | 17,8       |
+| solaire / bioénergies   | 25,2   | 18,7         | 9,4        |
+| bioénergies / charbon   | 15,8   | 12,4         | 14,6       |
+| charbon / fioul         | 19,8   | 17,1         | 16,2       |
+
+Cibles : 8 minimum en simulation daltonienne, 15 minimum en vision normale (distance
+OKLab multipliée par 100). Encres : `ink-40` (`#5f6f82`) donne 5,1:1 sur blanc et
+4,75:1 sur le fond de page ; l'accent `#1f5af5` donne 5,5:1 sur blanc.
