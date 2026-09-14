@@ -36,9 +36,22 @@ describe('prompts', () => {
     expect(messages[1]?.content).toContain('Record de consommation cet hiver ?')
   })
 
+  it('le prompt de plan definit la production et impose un ratio decimal', () => {
+    const system = buildPlanMessages('Part du solaire hier a midi ?')[0]?.content ?? ''
+    // la part d'une filiere se calcule sur la production totale, comme dans le brief du matin
+    expect(system).toContain('production')
+    expect(system).toContain('hors pompage')
+    // une division entiere (17316 / 40798 = 0) a deja produit un « 0 % » en production
+    expect(system).toContain('100.0 *')
+    expect(system).toContain('division entiere')
+  })
+
   it("le prompt de réponse porte le résultat et l'exigence d'honnêteté", () => {
     const messages = buildAnswerMessages('Question ?', [{ record_mw: 102098 }])
     expect(messages[0]?.content).toMatch(/uniquement/i)
+    // une part brute comme 42.44325702240306 doit sortir en 42,4 %
+    expect(messages[0]?.content).toContain('une decimale')
+    expect(messages[0]?.content).toContain('%')
     expect(messages[1]?.content).toContain('102098')
   })
 })
